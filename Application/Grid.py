@@ -1,5 +1,5 @@
 
-from Cell import Cell, BorderCell, SpawnCell, Agent, TargetCell
+from Cell import Cell, BorderCell, SpawnCell, Agent, TargetCell, ObstacleCell
 
 import random
 class Grid:
@@ -27,7 +27,11 @@ class Grid:
 
     def place_agent(self, row, col):
         """Place an agent at a specific position on the grid"""
-        self.grid[row][col] = Agent()
+        agent = Agent(row, col)
+        self.grid[row][col] = agent
+
+    def place_obstacle(self, row, col):
+        self.grid[row][col] = ObstacleCell()
 
     def display(self):
         """Print the current state of the grid"""
