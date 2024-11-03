@@ -40,16 +40,28 @@ grid.display()
 iteration = 0
 max_iterations = 10
 
+nearest_target_sum = []
+line_of_sight_sum = []
+potential_sum = []
+
 while iteration < max_iterations:
     for i in range(grid.rows):
         for j in range(grid.cols):
             if isinstance(grid.grid[i][j], Agent): 
                 agent = grid.grid[i][j]
                 print(agent.find_nearest_target(grid))
+                nearest_target_sum.append(agent.find_nearest_target(grid))
                 print(agent.line_of_sight(grid))
+                line_of_sight_sum.append(agent.line_of_sight(grid))
                 print(agent.potential(grid))
+                potential_sum.append(agent.potential(grid))
+
 
     grid.update()
     print("Updated Grid State:")
     grid.display()
     iteration += 1
+
+print(nearest_target_sum)
+print(line_of_sight_sum)
+print(potential_sum)
