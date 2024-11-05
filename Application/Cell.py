@@ -10,11 +10,11 @@ class Cell:
     def find_target(self, target_list):
         min_distance = float('inf')
         nearest_target = None
-        print(target_list)
-        print(self.row)
+        #print(target_list)
+        #print(self.row)
         for row, col in target_list:
-            print(row, col)
-            print(f"{row}-{self.row} ** 2 + ({col} - {self.col}) ** 2")
+            #print(row, col)
+            #print(f"{row}-{self.row} ** 2 + ({col} - {self.col}) ** 2")
             distance = math.sqrt((row - self.row) ** 2 + (col - self.col) ** 2)
             if distance < min_distance:
                 min_distance = distance
@@ -65,13 +65,30 @@ class SpawnCell(Cell):
         super().__init__(state=2, row=row, col=col)  # Spawn cells are active
 
     def spawn_agents(self, grid, max_agents):
+        neighbors = [
+            (self.row - 1, self.col),  # Up
+            (self.row + 1, self.col),  # Down
+            (self.row, self.col - 1),  # Left
+            (self.row, self.col + 1),  # Right
+            (self.row - 1, self.col - 1),  # Up - Left (diagonal)
+            (self.row - 1, self.col + 1),  # Up - Right (diagonal)
+            (self.row + 1, self.col - 1),  # Down - Left (diagonal)
+            (self.row + 1, self.col + 1)  # Down - Right (diagonal)
+        ]
+
+        # Filter neighbors to ensure they're within grid bounds and passable
+        valid_neighbors = [
+            (r, c) for r, c in neighbors
+            if 0 <= r < grid.rows and 0 <= c < grid.cols and grid.grid[r][c].is_passable()
+        ]
         """Spawn agents at the spawn cell location and add them to grid's agent list."""
-        empty_cells = [(r, c) for r in range(grid.rows) for c in range(grid.cols) if isinstance(grid.grid[r][c], Cell)]
-        random.shuffle(empty_cells)
-        agents_to_spawn = min(max_agents, len(empty_cells))
+
+        random.shuffle(valid_neighbors)
+        agents_to_spawn = min(max_agents, len(valid_neighbors))
 
         for _ in range(agents_to_spawn):
-            row, col = empty_cells.pop(0)
+            #print("CREATING AGENT")
+            row, col = valid_neighbors.pop(0)
             agent = Agent(row, col)
             grid.grid[row][col] = agent
             grid.agents.append(agent)  # Add agent to the grid's agents list
@@ -92,8 +109,8 @@ class TargetCell(Cell):
         return 'T'  # Represent target cells with 'T'
 class Agent(Cell):
     def __init__(self, row, col):
-        super().__init__(state=47, row=row, col=col)  # Set the agent state as before
-
+        super().__init__(state=47, row=row, col=col) # Set the agent state as before
+        self.arrived = False
 
     def find_nearest_target(self, grid):
         """Find the nearest TargetCell on the grid to this agent's current position."""
@@ -183,16 +200,34 @@ class Agent(Cell):
             (r, c) for r, c in neighbors
             if 0 <= r < grid.rows and 0 <= c < grid.cols and grid.grid[r][c].is_passable()
         ]
+
+        if self.arrived:
+            grid.grid[self.row][self.col] = Cell(self.row, self.col)  # Clear current position
+            print(self.__hash__())
+            if self in grid.agents:
+                grid.agents.remove(self)
+            return
+
         # Determine the neighbor with the highest potential
-        max_potential = float('-inf')
+        curr_potential = self.potential(grid, target_list)
         best_move = (self.row, self.col)  # Default to staying in place
+
+        if curr_potential == -1 or curr_potential == -1.4142135623730951:
+            print("arrived at Target")
+            self.arrived = True
+
         for r, c in valid_neighbors:
             neighbor_cell = grid.grid[r][c]
             potential = neighbor_cell.potential(grid, target_list)
             #print(potential)
-            if -potential > max_potential:
-                max_potential = potential
+            if potential > curr_potential and potential != 0:
+                curr_potential = potential
                 best_move = (r, c)
+
+
+
+
+
 
         if best_move != (self.row, self.col):
             grid.grid[self.row][self.col] = Cell(self.row, self.col)  # Clear current position

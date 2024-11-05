@@ -32,12 +32,12 @@ class Grid:
 
     def place_spawn_cell(self, row, col):
         """Place a spawn cell at a specific position on the grid"""
-        self.grid[row][col] = SpawnCell()
+        self.grid[row][col] = SpawnCell(row=row, col=col)
         self.spawn_cells.append((row, col))
 
     def place_target(self, row, col):
         """Place a target cell at a specific position on the grid"""
-        self.grid[row][col] = TargetCell()
+        self.grid[row][col] = TargetCell(row=row, col=col)
         self.target_cells.append((row, col))
 
     def place_agent(self, row, col):
@@ -47,7 +47,7 @@ class Grid:
         self.agents.append(agent)
 
     def place_obstacle(self, row, col):
-        self.grid[row][col] = ObstacleCell()
+        self.grid[row][col] = ObstacleCell(row=row, col=col)
 
     def display(self):
         """Print the current state of the grid"""
@@ -58,14 +58,14 @@ class Grid:
     def update(self, target_list):
         """Update the grid: move agents, spawn new agents"""
         for agent in self.agents:
-            print(agent)
+            #print(agent)
             agent.move_toward_highest_potential(self, target_list=target_list)  # Pass the grid instance
 
             # Spawn agents from spawn cells
-        for row, col in self.spawn_cells:
-            print(row, col)
-            max_agents = 1  # One agent per spawn cell for simplicity
-            if isinstance(self, SpawnCell):
-                self.grid[row][col].spawn_agents(self, max_agents)
 
+        for row, col in self.spawn_cells:
+            cell = self.grid[row][col]
+            if isinstance(cell, SpawnCell):  # Check if the cell at (row, col) is a SpawnCell
+                max_agents = 1  # Adjust the number of agents to spawn as needed
+                cell.spawn_agents(self, max_agents)
 
