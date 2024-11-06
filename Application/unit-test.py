@@ -1,6 +1,6 @@
 import unittest, math
 from Grid import Grid
-from Cell import Cell, SpawnCell, TargetCell, Agent
+from Cell import Cell, SpawnCell, TargetCell, Agent, ObstacleCell
 
 #Werden wir später noch in einen dedizierten Testordner verschieben
 class TestGrid(unittest.TestCase):
