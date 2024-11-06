@@ -97,7 +97,7 @@ class SpawnCell(Cell):
             grid.agents.append(agent)  # Add agent to the grid's agents list
 
     def is_passable(self):
-        return False  #Agenten können nicht durch Agenten laufen
+        return False  #Agenten können nicht Spawnzellen laufen
 
     def __repr__(self):
         return 'S'  # Represent spawn cells with 'S'

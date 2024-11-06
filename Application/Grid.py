@@ -51,6 +51,7 @@ class Grid:
 
     def place_obstacle(self, row, col):
         self.grid[row][col] = ObstacleCell(row=row, col=col)
+
     # Display Methode: Momentan noch in Konsole, später mit Plots
     def display(self):
         """Print the current state of the grid"""
