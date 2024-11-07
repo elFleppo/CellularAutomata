@@ -17,6 +17,8 @@ class TestGrid(unittest.TestCase):
         )
 
 
+   # one unit test tests only -> each class should test its method, and not via grid.update testing spawn agents. Please check again anc create real unit tests.
+
     def test_spawn_agents(self):
 
         #Zu Beginn noch keine Agenten in der Liste
