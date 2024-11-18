@@ -2,6 +2,7 @@
 from Cell import Cell, BorderCell, SpawnCell, Agent, TargetCell, ObstacleCell
 
 import random
+import os
 #Grid Klasse: Auf dem Grid befinden sich Zellobjekte und über das Grid wird das update() der Zellen durchgeführt
 class Grid:
     #Im Init wird das grid entsprechend aufgebaut, es können Listen mit Tuplen für die entsprechenden Zell Objekte mitgegeben werden
@@ -74,4 +75,13 @@ class Grid:
             if isinstance(cell, SpawnCell):  # Check if the cell at (row, col) is a SpawnCell
                 max_agents = 1  # Adjust the number of agents to spawn as needed
                 cell.spawn_agents(self, max_agents)
+
+    def create_logfile(self):
+        path = f"gridlog-{self.__hash__()}.txt"
+        if(os.path.isfile(path)):
+            return "File already exists"
+        else:
+            with open(path, "w") as fp:
+                pass
+            return "File created"
 

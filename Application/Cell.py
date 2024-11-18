@@ -118,6 +118,7 @@ class Agent(Cell):
         self.arrived = False
         #velocity wird später verwendet um die Gehgeschwindigkeit der einzelnen Agenten zu verändern
         self.velocity = random.uniform(0.75, 1.5)
+        self.id = self.__hash__()
  #Momentan nicht in Verwendung da wir Ziele als Liste führen und nicht immer als Grid Search finden müssen
  #   def find_nearest_target(self, grid):
  #       """Find the nearest TargetCell on the grid to this agent's current position."""
