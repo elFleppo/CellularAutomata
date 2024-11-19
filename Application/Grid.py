@@ -26,6 +26,13 @@ class Grid:
         for row, col in target_cells:
             self.grid[row][col] = TargetCell(row=row, col=col)
 
+    def log_grid_state(self, timestep, log_file="grid_states.log"):
+        """Log the entire grid's state for visualization."""
+        with open(log_file, "a") as logfile:
+            logfile.write(f"Timestep: {timestep}\n")
+            for row in self.grid:
+                logfile.write(" ".join(str(cell) for cell in row) + "\n")
+            logfile.write("\n")  # Add a newline for clarity
     #Plaziere Wand um Feld
     def place_border(self):
         """Place a border around the grid"""
@@ -61,13 +68,13 @@ class Grid:
         print()
 
     #Update funktion: Wir müssen nur die Agenten bewegen und die Spawns für den nächsten Zeitschritt durchführen
-    def update(self, target_list):
+    def update(self, target_list, timestep):
 
         #Bewege Agenten
         for agent in self.agents:
             #print(agent)
             agent.move_toward_highest_potential(self, target_list=target_list)  # Pass the grid instance
-
+            agent.log_state(timestep)
 
         #Spawne Agenten (
         for row, col in self.spawn_cells:
@@ -75,6 +82,7 @@ class Grid:
             if isinstance(cell, SpawnCell):  # Check if the cell at (row, col) is a SpawnCell
                 max_agents = 1  # Adjust the number of agents to spawn as needed
                 cell.spawn_agents(self, max_agents)
+        self.log_grid_state(timestep)
 
     def create_logfile(self):
         path = f"gridlog-{self.__hash__()}.txt"

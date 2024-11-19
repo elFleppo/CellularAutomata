@@ -22,6 +22,34 @@ class Cell:
                 nearest_target = (row, col)
         return nearest_target
 
+    def get_neighbors(self, grid, radius=2):
+        """
+        Get neighbors in an extended Moore neighborhood up to the specified radius.
+        Returns a dictionary where keys are the distance layers (1, 2, ..., radius),
+        and values are lists of cells at that distance.
+        """
+        neighbors = {}  # Store neighbors grouped by distance
+
+        for r in range(1, radius + 1):  # Iterate through each "ring" (distance layer)
+            layer_neighbors = []
+            for dr in range(-r, r + 1):  # Rows in the ring
+                for dc in range(-r, r + 1):  # Columns in the ring
+                    # Include only the current ring (distance exactly `r` in any direction)
+                    if abs(dr) == r or abs(dc) == r:
+                        # Compute the neighbor's coordinates
+                        neighbor_row, neighbor_col = self.row + dr, self.col + dc
+                        # Check grid bounds and passability
+                        if 0 <= neighbor_row < grid.rows and 0 <= neighbor_col < grid.cols:
+                            neighbor_cell = grid.grid[neighbor_row][neighbor_col]
+                            if neighbor_cell.is_passable():
+                                layer_neighbors.append(neighbor_cell)
+
+            neighbors[r] = layer_neighbors  # Group neighbors by distance
+
+        return neighbors
+
+
+
     #Jedes Feld hat einen Potentialwert zu der naheliegendsten Target Zelle
     def potential(self, grid, target_list):
         """Calculate potential based on the negative Euclidean distance to the target cell."""
@@ -44,8 +72,8 @@ class Cell:
 
 # Randzellen die das Feld umschliessen (etwa im Fall eines Raums mit Türen kann ein Border plaziert und danach Targets als Türen auf dem Border definiert werden)
 class BorderCell(Cell):
-    def __init__(self,):
-        super().__init__(state=1)  # Border cells are always active
+    def __init__(self,row, col):
+        super().__init__(state=1, row=row, col=col)  # Border cells are always active
 
 
     def is_passable(self):
@@ -68,22 +96,8 @@ class SpawnCell(Cell):
         super().__init__(state=2, row=row, col=col)  # Spawn cells are active
     #Spawn eine definierte Anzahl Agenten auf deinen Moore Nachbarn und füge die neuen Agenten der grid.agents liste Hinzu
     def spawn_agents(self, grid, max_agents):
-        neighbors = [
-            (self.row - 1, self.col),  # Up
-            (self.row + 1, self.col),  # Down
-            (self.row, self.col - 1),  # Left
-            (self.row, self.col + 1),  # Right
-            (self.row - 1, self.col - 1),  # Up - Left (diagonal)
-            (self.row - 1, self.col + 1),  # Up - Right (diagonal)
-            (self.row + 1, self.col - 1),  # Down - Left (diagonal)
-            (self.row + 1, self.col + 1)  # Down - Right (diagonal)
-        ]
-
-        # Filter neighbors to ensure they're within grid bounds and passable
-        valid_neighbors = [
-            (r, c) for r, c in neighbors
-            if 0 <= r < grid.rows and 0 <= c < grid.cols and grid.grid[r][c].is_passable()
-        ]
+        neighbors  = self.get_neighbors(grid, radius=1)
+        valid_neighbors = [cell for layer in neighbors.values() for cell in layer]
         """Spawn agents at the spawn cell location and add them to grid's agent list."""
 
         random.shuffle(valid_neighbors)
@@ -91,10 +105,11 @@ class SpawnCell(Cell):
 
         for _ in range(agents_to_spawn):
             #print("CREATING AGENT")
-            row, col = valid_neighbors.pop(0)
-            agent = Agent(row, col)
-            grid.grid[row][col] = agent
-            grid.agents.append(agent)  # Add agent to the grid's agents list
+            cell = valid_neighbors.pop(0)  # Pick a random valid neighbor
+            row, col = cell.row, cell.col
+            agent = Agent(row, col)  # Create a new agent
+            grid.grid[row][col] = agent  # Place agent on the grid
+            grid.agents.append(agent)
 
     def is_passable(self):
         return False  #Agenten können nicht Spawnzellen laufen
@@ -136,7 +151,13 @@ class Agent(Cell):
  #                       nearest_target = (target_row, target_col)
  #
  #       return nearest_target  # Returns (target_row, target_col) or None if no TargetCell is found
-
+    def log_state(self, timestep, log_file="agent_states.log"):
+        """Log the agent's state to a file."""
+        with open(log_file, "a") as logfile:
+            logfile.write(
+                f"Timestep: {timestep}, Agent ID: {self.id}, Position: ({self.row}, {self.col}), "
+                f"State: {self.state}, Arrived: {self.arrived}, Velocity: {self.velocity}\n"
+            )
 
     def is_passable(self):
         return False  # Agents are impassable (to other agents, for instance)
@@ -178,28 +199,15 @@ class Agent(Cell):
         
 
 
+    def velocity_check(self):
+        pass
 
     #Bewegungslogik
     def move_toward_highest_potential(self, grid, target_list):
         # Der Agent bewegt sich zu der Zelle mit dem besten Potenzial
 
-
-        neighbors = [
-            (self.row - 1, self.col),  # Up
-            (self.row + 1, self.col),  # Down
-            (self.row, self.col - 1),  # Left
-            (self.row, self.col + 1),  # Right
-            (self.row -1, self.col -1), #Up - Left (diagonal)
-            (self.row - 1, self.col + 1), #Up - Right (diagonal)
-            (self.row + 1, self.col - 1), #Down - Left (diagonal)
-            (self.row + 1, self.col + 1) #Down - Right (diagonal)
-        ]
-
-        # Nur Zellen die der Agent auch besuchen kann
-        valid_neighbors = [
-            (r, c) for r, c in neighbors
-            if 0 <= r < grid.rows and 0 <= c < grid.cols and grid.grid[r][c].is_passable()
-        ]
+        neighbors = self.get_neighbors(grid, radius=1)
+        valid_neighbors = [cell for layer in neighbors.values() for cell in layer]
         # Wenn der Agent angekommen ist (also mit der nächsten Bewegung im Ziel "verschwindet") entfernen wir ihn
         if self.arrived:
             grid.grid[self.row][self.col] = Cell(self.row, self.col)  # Clear current position
@@ -217,18 +225,11 @@ class Agent(Cell):
             print("arrived at Target")
             self.arrived = True
         #Vergleiche Potential von Nachbarzellen mit eigener Zelle
-        for r, c in valid_neighbors:
-            neighbor_cell = grid.grid[r][c]
+        for neighbor_cell in valid_neighbors:
             potential = neighbor_cell.potential(grid, target_list)
-            #print(potential)
-            if potential > curr_potential and potential != 0:
+            if potential > curr_potential:
                 curr_potential = potential
-                best_move = (r, c)
-
-
-
-
-
+                best_move = (neighbor_cell.row, neighbor_cell.col)
 
         if best_move != (self.row, self.col):
             grid.grid[self.row][self.col] = Cell(self.row, self.col)  # Clear current position
