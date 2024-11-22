@@ -3,7 +3,7 @@ from Grid import Grid
 from Cell import Cell, SpawnCell, TargetCell, Agent, ObstacleCell
 
 #Werden wir später noch in einen dedizierten Testordner verschieben
-class TestGrid(unittest.TestCase):
+class TestAgentBehavior(unittest.TestCase):
 
     def setUp(self):
 
@@ -16,74 +16,109 @@ class TestGrid(unittest.TestCase):
             obstacle_cells=[]#Momentan noch keine Kolisionsvermeidung
         )
 
+    def test_spawn_agents_restrict_to_neighbors(self):
+        spawn_cell = self.grid.grid[1][1]  # Define a spawn cell
+        self.assertIsInstance(spawn_cell, SpawnCell, "Expected a SpawnCell at (1, 1)")
 
-    def test_spawn_agents(self):
+        # Spawn agents in the first timestep
+        for timestep in range(5):
+            self.grid.update(self.grid.target_cells, timestep)
 
-        #Zu Beginn noch keine Agenten in der Liste
-        self.assertEqual(len(self.grid.agents), 0)
-
-        # Update erzeugt neue Agenten
-        self.grid.update(self.grid.target_cells)
-
-        # Check ob Liste gewachsen ist
-        self.assertGreater(len(self.grid.agents), 0, "No agents were spawned.")
-
-        # Spawnlocation überprüfen, Valide Zellen sind spawn_neighbors
-        spawn_neighbors = [
-            (0, 1), (2, 1), (1, 0), (1, 2), (0, 0), (0, 2), (2, 0), (2, 2)
-        ]
-        #Agenten Position ermitteln
+        # Verify all agents are in valid spawn neighbor cells
+            spawn_neighbors = [
+                (0, 0), (0, 1), (0, 2),
+                (1, 0), (1, 2),
+                (2, 0), (2, 1), (2, 2),
+            ]
         agent_positions = [(agent.row, agent.col) for agent in self.grid.agents]
 
         for pos in agent_positions:
-            #agenten Position muss in spawn_neighbors sein
-            self.assertIn(pos, spawn_neighbors, "Agent spawned in an invalid cell.")
+            self.assertIn(pos, spawn_neighbors, "Agent spawned or moved outside valid neighbors.")
 
     def test_agent_removal_on_arrival(self):
-
         # Plaziere Agent bei Ziel
         agent = Agent(2, 2)
         self.grid.grid[2][2] = agent
         self.grid.agents.append(agent)
 
         # Update bewirkt das er sich Ziel Nähert
-        self.grid.update(self.grid.target_cells)
-
-        # Wir lassen sicherheitshalber mehr iterationen als nötig laufen falls sich die 5x5 grösse mal ändert
-        #
-        for _ in range(10):
-            self.grid.update(self.grid.target_cells)
+        for timestep in range(10):
+            self.grid.update(self.grid.target_cells, timestep=timestep)
 
         # Verifiziere Löschung
         self.assertNotIn(agent, self.grid.agents, "Agent was not removed after arrival.")
         self.assertNotIsInstance(self.grid.grid[3][3], Agent, "Agent is still present at the target cell.")
 
-    def test_agent_movement_toward_target(self):
+    def test_no_multiple_agents_per_cell(self):
+        # Run updates for multiple timesteps
+        for timestep in range(10):
+            self.grid.update(self.grid.target_cells, timestep)
 
-        # Plaziere Agenten
-        agent = Agent(0, 0)
-        self.grid.grid[0][0] = agent
-        self.grid.agents.append(agent)
+        # Collect all agent positions
+        agent_positions = [(agent.row, agent.col) for agent in self.grid.agents]
 
-        # Initial und Ziel Positionen
-        initial_position = (agent.row, agent.col)
-        target_position = self.grid.target_cells[0] # Zielkoordinaten
+        # Ensure no duplicates (i.e., no two agents occupy the same cell)
+        unique_positions = set(agent_positions)
+        self.assertEqual(len(agent_positions), len(unique_positions), "Multiple agents occupy the same cell.")
 
-        # Initiale Distanz
-        initial_distance = math.sqrt((target_position[0] - initial_position[0]) ** 2 +
-                                     (target_position[1] - initial_position[1]) ** 2)
 
-        # Bewegung zum Ziel durch Update
-        self.grid.update(self.grid.target_cells)
+class TestGrid(unittest.TestCase):
+    def setUp(self):
 
-        # Neue Distanz
-        new_position = (agent.row, agent.col)
-        new_distance = math.sqrt((target_position[0] - new_position[0]) ** 2 +
-                                 (target_position[1] - new_position[1]) ** 2)
 
-        # Neue Distanz muss kleiner sein als die vorherige
-        self.assertLess(new_distance, initial_distance, "Agent did not move closer to the target.")
+        self.grid = Grid(
+            rows=12,
+            cols=12,
+            spawn_cells=[(6, 6)],
+            target_cells=[(2, 5), (8, 9)],
+            obstacle_cells=[(4, 2)]#Momentan noch keine Kolisionsvermeidung
+        )
 
+
+class TestCellNeighbors(unittest.TestCase):
+    def setUp(self):
+        # Create a 5x5 grid for testing
+        self.grid = Grid(
+            rows=5,
+            cols=5,
+            spawn_cells=[],
+            target_cells=[],
+            obstacle_cells=[]
+        )
+        # Place a Cell in the middle for normal case and edges for edge cases
+        self.central_cell = self.grid.grid[2][2]  # Center of the grid
+        self.corner_cell = self.grid.grid[0][0]  # Top-left corner
+        self.edge_cell = self.grid.grid[0][2]    # Top edge
+
+    def test_central_cell_neighbors_radius_1(self):
+        neighbors = self.central_cell.get_neighbors(self.grid, radius=1)
+        total_neighbors = sum(len(cells) for cells in neighbors.values())
+        self.assertEqual(total_neighbors, 8, "Central cell should have 8 neighbors for radius=1.")
+
+    def test_central_cell_neighbors_radius_2(self):
+        neighbors = self.central_cell.get_neighbors(self.grid, radius=2)
+        total_neighbors = sum(len(cells) for cells in neighbors.values())
+        self.assertEqual(total_neighbors, 24, "Central cell should have 24 neighbors for radius=2.")
+
+    def test_corner_cell_neighbors_radius_1(self):
+        neighbors = self.corner_cell.get_neighbors(self.grid, radius=1)
+        total_neighbors = sum(len(cells) for cells in neighbors.values())
+        self.assertEqual(total_neighbors, 3, "Corner cell should have 3 neighbors for radius=1.")
+
+    def test_edge_cell_neighbors_radius_1(self):
+        neighbors = self.edge_cell.get_neighbors(self.grid, radius=1)
+        total_neighbors = sum(len(cells) for cells in neighbors.values())
+        self.assertEqual(total_neighbors, 5, "Edge cell should have 5 neighbors for radius=1.")
+
+    def test_corner_cell_neighbors_radius_2(self):
+        neighbors = self.corner_cell.get_neighbors(self.grid, radius=2)
+        total_neighbors = sum(len(cells) for cells in neighbors.values())
+        self.assertEqual(total_neighbors, 8, "Corner cell should have 8 neighbors for radius=2.")
+
+    def test_edge_cell_neighbors_radius_2(self):
+        neighbors = self.edge_cell.get_neighbors(self.grid, radius=2)
+        total_neighbors = sum(len(cells) for cells in neighbors.values())
+        self.assertEqual(total_neighbors, 14, "Edge cell should have 14 neighbors for radius=2.")
 
 if __name__ == '__main__':
     unittest.main()

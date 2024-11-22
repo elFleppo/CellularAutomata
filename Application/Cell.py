@@ -105,19 +105,21 @@ class SpawnCell(Cell):
     #Spawn eine definierte Anzahl Agenten auf deinen Moore Nachbarn und füge die neuen Agenten der grid.agents liste Hinzu
 
     def spawn_agents(self, grid, max_agents):
-        neighbors  = self.get_neighbors(grid, radius=1)
-        valid_neighbors = [cell for layer in neighbors.values() for cell in layer]
-        """Spawn agents at the spawn cell location and add them to grid's agent list."""
+        neighbors = self.get_neighbors(grid, radius=1)
+        valid_neighbors = [
+            cell for layer in neighbors.values()
+            for cell in layer
+            if not grid.is_cell_occupied(cell.row, cell.col)
+        ]
 
         random.shuffle(valid_neighbors)
-        agents_to_spawn = min(max_agents, len(valid_neighbors))
 
+        agents_to_spawn = min(max_agents, len(valid_neighbors))
         for _ in range(agents_to_spawn):
-            #print("CREATING AGENT")
-            cell = valid_neighbors.pop(0)  # Pick a random valid neighbor
+            cell = valid_neighbors.pop(0)
             row, col = cell.row, cell.col
-            agent = Agent(row, col)  # Create a new agent
-            grid.grid[row][col] = agent  # Place agent on the grid
+            agent = Agent(row, col)
+            grid.grid[row][col] = agent
             grid.agents.append(agent)
 
     def is_passable(self):
@@ -162,11 +164,12 @@ class Agent(Cell):
  #                       nearest_target = (target_row, target_col)
  #
  #       return nearest_target  # Returns (target_row, target_col) or None if no TargetCell is found
-    def log_state(self, timestep, log_file="agent_states.log"):
+    def log_state(self, timestep, log_file="logs/agent_states.log"):
         """Log the agent's state to a file."""
+
         with open(log_file, "a") as logfile:
             logfile.write(
-                f"Timestep: {timestep}, Agent ID: {self.id}, Position: ({self.row}, {self.col}), Route: {self.route}\n "
+                f"Timestep: {timestep}, Agent ID: {self.id}, Position: (row: {self.row}, col: {self.col}), Route: {self.route}\n "
                 f"State: {self.state}, Arrived: {self.arrived}, Velocity: {self.velocity}\n"
             )
 
@@ -258,46 +261,49 @@ class Agent(Cell):
 
     #Bewegungslogik
     def move_toward_highest_potential(self, grid, target_list):
-        # Der Agent bewegt sich zu der Zelle mit dem besten Potenzial
-
+        """Move the agent toward the cell with the highest potential."""
         neighbors = self.get_neighbors(grid, radius=1)
-        valid_neighbors = [cell for layer in neighbors.values() for cell in layer]
-        self.velocity = self.velocity - self.social_force(grid)
-        print(f"Agent{self.__hash__()} at {self.row},{self.col} has {self.velocity}")
-        # Wenn der Agent angekommen ist (also mit der nächsten Bewegung im Ziel "verschwindet") entfernen wir ihn
-        if self.arrived:
-            grid.grid[self.row][self.col] = Cell(self.row, self.col)  # Clear current position
-            #print(self.__hash__())  #Zum überprüfen der Funktionalität
-            if self in grid.agents:
-                grid.agents.remove(self)
-            return
+        valid_neighbors = [
+            cell for layer in neighbors.values()
+            for cell in layer
+            if not grid.is_cell_occupied(cell.row, cell.col)  # Ensure cell is unoccupied
+        ]
 
-        # Determine the neighbor with the highest potential
+        # Calculate the current potential
         curr_potential = self.potential(grid, target_list)
-        best_move = (self.row, self.col)  # Default to staying in place
+        best_move = (self.row, self.col)  # Default: stay in place
 
-        #Wenn ich mich neben dem Ziel (potential -1 oder -1.41 (diagonal momentan noch gleichbehandelt)) befinde, bin ich angekommen und werden in t+1 gelöscht
-        if curr_potential == -1 or curr_potential == -1.4142135623730951:
-            print("arrived at Target")
-            self.arrived = True
-        #Vergleiche Potential von Nachbarzellen mit eigener Zelle
+        # Check if the agent has reached its target
+        if self.arrived == True:
+            grid.agents.remove(self)
+            grid.grid[self.row][self.col] = Cell(self.row, self.col)
+            print("arrived")
+
+            return  # Stop further movement
+
+        # Find the neighbor with the highest potential
         for neighbor_cell in valid_neighbors:
             potential = neighbor_cell.potential(grid, target_list)
             if potential > curr_potential:
                 curr_potential = potential
                 best_move = (neighbor_cell.row, neighbor_cell.col)
 
+        # Move to the best neighbor
         if best_move != (self.row, self.col):
-            #check if in range
-            distance = self.euclidean_distance_to(grid.grid[best_move[0]][best_move[1]])
-            if distance <= self.movement_range:
-                grid.grid[self.row][self.col] = Cell(self.row, self.col)  # Clear current position
-                grid.grid[best_move[0]][best_move[1]] = self  # Move agent to new position
-                self.route.append(best_move)
-                self.row, self.col = best_move  # Update agent's position
-            else:
-                self.movement_range = self.increase_movement_range()
+            # Check the destination cell
+            target_cell = grid.grid[best_move[0]][best_move[1]]
 
+            # If the destination is a TargetCell, mark arrival but don't overwrite
+            if isinstance(target_cell, TargetCell):
+                self.arrived = True
+                print("Ariving in t+1")
+                #self.row, self.col = best_move  # No Further movement
+                #grid.agents.remove(self)  # Remove the agent from the active list
+            else:
+                # Otherwise, move normally
+                grid.grid[self.row][self.col] = Cell(self.row, self.col)  # Clear current position
+                grid.grid[best_move[0]][best_move[1]] = self  # Move agent
+                self.row, self.col = best_move  # Update position
 
     def __repr__(self):
         return 'A'  # Represent agent with 'A'

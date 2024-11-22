@@ -3,6 +3,9 @@ from Cell import Cell, BorderCell, SpawnCell, Agent, TargetCell, ObstacleCell
 
 import random
 import os
+import seaborn as sns
+import matplotlib.pyplot as plt
+import matplotlib.colors as mcolors
 #Grid Klasse: Auf dem Grid befinden sich Zellobjekte und über das Grid wird das update() der Zellen durchgeführt
 class Grid:
     #Im Init wird das grid entsprechend aufgebaut, es können Listen mit Tuplen für die entsprechenden Zell Objekte mitgegeben werden
@@ -26,7 +29,7 @@ class Grid:
         for row, col in target_cells:
             self.grid[row][col] = TargetCell(row=row, col=col)
 
-    def log_grid_state(self, timestep, log_file="grid_states.log"):
+    def log_grid_state(self, timestep, log_file="logs/grid_states.log"):
         """Log the entire grid's state for visualization."""
         with open(log_file, "a") as logfile:
             logfile.write(f"Timestep: {timestep}\n")
@@ -60,6 +63,10 @@ class Grid:
     def place_obstacle(self, row, col):
         self.grid[row][col] = ObstacleCell(row=row, col=col)
 
+    def is_cell_occupied(self, row, col):
+        cell = self.grid[row][col]
+        return isinstance(cell, Agent)
+
     # Display Methode: Momentan noch in Konsole, später mit Plots
     def display(self):
         """Print the current state of the grid"""
@@ -92,4 +99,43 @@ class Grid:
             with open(path, "w") as fp:
                 pass
             return "File created"
+
+    def plot_grid_state(grid, timestep):
+        """
+        Plots the current state of the grid at a given timestep using Plotly.
+        Each cell is represented by its `state` value.
+        """
+        # Convert grid to a DataFrame for easy visualization
+        data = [[cell.state for cell in row] for row in grid.grid]
+        # Define a custom color map for the cell states
+        custom_colors = {
+            0: 'white',  # Empty cells
+            1: 'yellow',  # Border cells
+            2: 'green',  # Spawn cells
+            3: 'red',  # Target cells
+            4: 'gray',  # Obstacles
+            47: 'blue'  # Agents
+        }
+
+        # Create a colormap with `matplotlib.colors`
+        cmap = mcolors.ListedColormap([custom_colors[key] for key in sorted(custom_colors.keys())])
+        bounds = list(sorted(custom_colors.keys())) + [max(custom_colors.keys()) + 1]  # Add bounds for each state
+        norm = mcolors.BoundaryNorm(bounds, cmap.N)
+
+        # Plot with Seaborn
+        plt.figure(figsize=(8, 6))
+        sns.heatmap(
+            data,
+            cmap=cmap,
+            norm=norm,
+            linewidths=0.5,
+            linecolor='black',  # Gridlines for better clarity
+            cbar=False,  # Disable default color bar
+            xticklabels=False,  # Remove x-axis labels
+            yticklabels=False  # Remove y-axis labels
+        )
+        plt.title(f"Grid State at Timestep {timestep}")
+        plt.xlabel("Columns")
+        plt.ylabel("Rows")
+        plt.show()
 
