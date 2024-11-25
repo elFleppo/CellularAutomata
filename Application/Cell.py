@@ -186,10 +186,13 @@ class Agent(Cell):
         line_cells = self.bresenham_line(self.row, self.col, target[0], target[1])
 
         for row, col in line_cells:
-            # If any cell in the line is impassable, return False
-            if not grid.grid[row][col].is_passable():
-                return False
-        return True
+            # Check if the cell at (row, col) is an obstacle
+            cell = grid.grid[row][col]
+            if isinstance(cell, ObstacleCell):
+                return False  # Line of sight is blocked by an obstacle
+
+        return True  # Line of sight is clear
+
     #bresenham_line fürht eine Liste aller Zellen die auf der line_of_sight zum Ziel sind (um Sichtkontakt zum Ziel zu prüfen)
     def bresenham_line(self, x1, y1, x2, y2):
         """Bresenham's Line Algorithm to calculate all cells between two points."""
@@ -261,49 +264,54 @@ class Agent(Cell):
 
     #Bewegungslogik
     def move_toward_highest_potential(self, grid, target_list):
-        """Move the agent toward the cell with the highest potential."""
+       #Denke den brauchen wir gar nicht da nach self.arrived = True das Grid den Agenten löscht
+        if self.arrived:
+            return
+
+        # Ziel auswählen --> Ziel auswahl muss pro Zelle stattfinden. Aber die Distance map könnten wir wahrscheinlich wo anders setzen um Rechenzeit zu sparen / Redundanz zu verhindern
+        target = self.find_target(target_list)
+        if not target:
+            return  # No target available
+
+        # Compute distance map from the target
+        distance_map = grid.compute_distance_map(target)
+
+        # Moore nachbarn die nicht besetzt oder Hindernis sind.
         neighbors = self.get_neighbors(grid, radius=1)
         valid_neighbors = [
             cell for layer in neighbors.values()
             for cell in layer
-            if not grid.is_cell_occupied(cell.row, cell.col)  # Ensure cell is unoccupied
+            if not isinstance(cell, ObstacleCell) and not grid.is_cell_occupied(cell.row, cell.col)
         ]
 
-        # Calculate the current potential
-        curr_potential = self.potential(grid, target_list)
-        best_move = (self.row, self.col)  # Default: stay in place
+        # Include the agent's current position as an option
+        valid_neighbors.append(self)
 
-        # Check if the agent has reached its target
-        if self.arrived == True:
-            grid.agents.remove(self)
+        # Suche besten Nachbar aus basierend auf Distance map
+        best_move = self
+        smallest_distance = distance_map[self.row][self.col]
+
+        for neighbor in valid_neighbors:
+            distance = distance_map[neighbor.row][neighbor.col]
+            if distance < smallest_distance:
+                smallest_distance = distance
+                best_move = neighbor
+
+        # Bewegung
+        if best_move != self:
+            grid.grid[self.row][self.col] = Cell(self.row, self.col)  # Clear current position
+            grid.grid[best_move.row][best_move.col] = self  # Move agent
+            self.row, self.col = best_move.row, best_move.col
+
+        # Agent ist angekommen und wird entsprechend entfernt
+        if smallest_distance == 1:
+            self.arrived = True
+            grid.agents.remove(self)  # Remove the agent from active list
             grid.grid[self.row][self.col] = Cell(self.row, self.col)
-            print("arrived")
+            print(f"Agent at ({self.row}, {self.col}) is adjacent to the target and has arrived.")
 
-            return  # Stop further movement
 
-        # Find the neighbor with the highest potential
-        for neighbor_cell in valid_neighbors:
-            potential = neighbor_cell.potential(grid, target_list)
-            if potential > curr_potential:
-                curr_potential = potential
-                best_move = (neighbor_cell.row, neighbor_cell.col)
 
-        # Move to the best neighbor
-        if best_move != (self.row, self.col):
-            # Check the destination cell
-            target_cell = grid.grid[best_move[0]][best_move[1]]
-
-            # If the destination is a TargetCell, mark arrival but don't overwrite
-            if isinstance(target_cell, TargetCell):
-                self.arrived = True
-                print("Ariving in t+1")
-                #self.row, self.col = best_move  # No Further movement
-                #grid.agents.remove(self)  # Remove the agent from the active list
-            else:
-                # Otherwise, move normally
-                grid.grid[self.row][self.col] = Cell(self.row, self.col)  # Clear current position
-                grid.grid[best_move[0]][best_move[1]] = self  # Move agent
-                self.row, self.col = best_move  # Update position
 
     def __repr__(self):
         return 'A'  # Represent agent with 'A'

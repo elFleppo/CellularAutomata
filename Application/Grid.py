@@ -6,6 +6,7 @@ import os
 import seaborn as sns
 import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
+import heapq
 #Grid Klasse: Auf dem Grid befinden sich Zellobjekte und über das Grid wird das update() der Zellen durchgeführt
 class Grid:
     #Im Init wird das grid entsprechend aufgebaut, es können Listen mit Tuplen für die entsprechenden Zell Objekte mitgegeben werden
@@ -67,6 +68,63 @@ class Grid:
         cell = self.grid[row][col]
         return isinstance(cell, Agent)
 
+
+    #Helper Methode für Djkstra Algorithmus
+    def compute_distance_map(grid, target):
+        """
+        Compute the shortest path distances from the target to all cells using Dijkstra's algorithm.
+        Neighbors are retrieved using the `get_neighbors(radius=1)` method.
+        """
+        # Get grid dimensions
+        rows, cols = grid.rows, grid.cols
+
+        # Initialize distance map with "infinity" (unreachable by default)
+        distance_map = [[float('inf')] * cols for _ in range(rows)]
+
+        # Set the distance of the target cell to 0
+        target_row, target_col = target
+        distance_map[target_row][target_col] = 0
+
+        # Priority queue for processing cells (distance, row, column)
+        queue = [(0, target_row, target_col)]
+
+        while queue:
+            # Get the next cell with the smallest distance
+            current_distance, current_row, current_col = heapq.heappop(queue)
+
+            # Skip if we've already found a shorter distance for this cell
+            if current_distance > distance_map[current_row][current_col]:
+                continue
+
+            # Get the neighbors using the `get_neighbors` method
+            current_cell = grid.grid[current_row][current_col]
+            neighbors = current_cell.get_neighbors(grid, radius=1)
+
+            # Flatten the dictionary of neighbors into a single list of cells
+            neighbor_cells = [
+                neighbor
+                for layer in neighbors.values()  # Iterate over neighbor layers (distance 1)
+                for neighbor in layer
+            ]
+
+            # Explore each neighbor
+            for neighbor in neighbor_cells:
+                neighbor_row, neighbor_col = neighbor.row, neighbor.col
+
+                # Skip if the neighbor is an obstacle
+                if isinstance(neighbor, ObstacleCell):
+                    continue
+
+                # Calculate the distance to this neighbor
+                new_distance = current_distance + 1  # Uniform cost for moving to any neighboring cell
+
+                # Update the distance map and queue if we've found a shorter path
+                if new_distance < distance_map[neighbor_row][neighbor_col]:
+                    distance_map[neighbor_row][neighbor_col] = new_distance
+                    heapq.heappush(queue, (new_distance, neighbor_row, neighbor_col))
+
+        return distance_map
+
     # Display Methode: Momentan noch in Konsole, später mit Plots
     def display(self):
         """Print the current state of the grid"""
@@ -79,6 +137,8 @@ class Grid:
 
         #Bewege Agenten
         for agent in self.agents:
+            if agent.arrived == True:
+                self.agents.remove(agent)
             #print(agent)
             agent.move_toward_highest_potential(self, target_list=target_list)  # Pass the grid instance
             agent.log_state(timestep)
@@ -101,10 +161,7 @@ class Grid:
             return "File created"
 
     def plot_grid_state(grid, timestep):
-        """
-        Plots the current state of the grid at a given timestep using Plotly.
-        Each cell is represented by its `state` value.
-        """
+        #Plot Ausgabe für klarere Visualisierung, momentan noch über States für Farbwahl: Evtl besser mit cell.color?
         # Convert grid to a DataFrame for easy visualization
         data = [[cell.state for cell in row] for row in grid.grid]
         # Define a custom color map for the cell states
