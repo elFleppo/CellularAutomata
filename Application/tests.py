@@ -22,3 +22,66 @@ for i in range(timesteps):
     grid.update(target_list=target_cells)
 
 
+def ChickenTest():
+    rows = 50
+    cols = 50
+    timesteps = 55
+    spawn_cells = []
+    obstacle_cells = []
+    target_cells = []
+
+    grid = Grid(rows, cols, spawn_cells=spawn_cells, obstacle_cells=obstacle_cells,target_cells=target_cells)
+    grid.place_agent(1, 1)
+
+
+    for i in range(timesteps):
+        print(grid.display())
+        print(f"\n{i} Zeitschritt")
+        grid.update(target_list=target_cells)
+
+
+def RiMEA9(Doors):
+    rows = 20
+    cols = 30
+    timesteps = 120
+    spawn_cells = []
+    obstacle_cells = []
+    possible_targets = [(0, 4), (19, 25), (0, 25), (19, 4)]
+    target_cells = []
+    for k in range(0,Doors):
+        target_cells.append(possible_targets[k])
+    print(target_cells)
+
+    grid = Grid(rows, cols, spawn_cells=spawn_cells, obstacle_cells=obstacle_cells,target_cells=target_cells)
+    for i in range(0, rows - 4):
+        for j in range(0, cols - 4):
+            grid.place_agent(i + 2, j + 2)
+
+
+    for i in range(timesteps):
+        print(grid.display())
+        print(f"\n{i} Zeitschritt")
+        grid.update(target_list=target_cells)
+        # Abbruch des Updates, wenn alle Agenten vom Gitter weg sind? (Ersatz von festgelegten timesteps)
+
+
+def RiMEA4():
+    rows = 10
+    cols = 150
+    timesteps = 200
+    # aktuell werden in jedem Zeitschritt aus allen Spawn-Cells Agenten platziert - Möglichkeit zur Randomness?
+    spawn_cells = []
+    for i in range(0, rows):
+            spawn_cells.append((i, 0))
+    obstacle_cells = [(4, 24), (5, 24), (4, 25), (5, 25), (4, 74), (5, 74), (6, 74), (7, 74), (4, 75), (5, 75), (6, 75), (7, 75)]
+    target_cells = [(0, 149), (1, 149), (2, 149), (3, 149), (4, 149), (5, 149), (6, 149), (7, 149), (8, 149), (9, 149)]
+    print(target_cells)
+
+    grid = Grid(rows, cols, spawn_cells=spawn_cells, obstacle_cells=obstacle_cells,target_cells=target_cells)
+    #grid.place_agent(i + 2, j + 2)
+
+
+    for i in range(timesteps):
+        print(grid.display())
+        print(f"\n{i} Zeitschritt")
+        grid.update(target_list=target_cells)
