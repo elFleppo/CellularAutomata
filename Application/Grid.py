@@ -7,15 +7,21 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
 import heapq
+
+
+def clamp(value, min_value, max_value):
+    return max(min(value, max_value), min_value)
 #Grid Klasse: Auf dem Grid befinden sich Zellobjekte und über das Grid wird das update() der Zellen durchgeführt
 class Grid:
     #Im Init wird das grid entsprechend aufgebaut, es können Listen mit Tuplen für die entsprechenden Zell Objekte mitgegeben werden
-    def __init__(self, rows, cols, spawn_cells, target_cells, obstacle_cells, cell_size=1.0):
-        self.rows = rows
-        self.cols = cols
+    def __init__(self, length, height, spawn_cells, target_cells, obstacle_cells, cell_size=1.0):
+        self.length = length
+        self.height = height
+        self.rows = int(height / cell_size)
+        self.cols = int(length / cell_size)
         self.cell_size = cell_size
         self.grid = [
-            [Cell(row, col, cell_size=cell_size) for col in range(cols)] for row in range(rows)
+            [Cell(row, col, cell_size=cell_size) for col in range(self.cols)] for row in range(self.rows)
         ]  # Aufbau Grid
         self.spawn_cells = spawn_cells  # Listen für Spawns, Ziele und Hindernisse
         self.target_cells = target_cells
@@ -30,6 +36,7 @@ class Grid:
             self.grid[row][col] = ObstacleCell(row=row, col=col, cell_size=cell_size)
         for row, col in target_cells:
             self.grid[row][col] = TargetCell(row=row, col=col, cell_size=cell_size)
+
 
     def log_grid_state(self, timestep, log_file="logs/grid_states.log"):
         """Log the entire grid's state for visualization."""
@@ -46,26 +53,36 @@ class Grid:
                 if r == 0 or r == self.rows - 1 or c == 0 or c == self.cols - 1:
                     self.grid[r][c] = BorderCell(cell_size=self.cell_size)
     #Die Untenstehenden methoden erlauben eine Interaktion mit dem Grid ausserhalb der initialisierung
-    def place_spawn_cell(self, row, col):
+    def place_spawn_cell(self, x,y):
         """Place a spawn cell at a specific position on the grid"""
+        row = clamp(int(y / self.cell_size), 0, self.rows - 1)
+        col = clamp(int(x / self.cell_size), 0, self.cols - 1)
         self.grid[row][col] = SpawnCell(row=row, col=col, cell_size=self.cell_size)
         self.spawn_cells.append((row, col))
 
-    def place_target(self, row, col):
+    def place_target(self, x, y):
         """Place a target cell at a specific position on the grid"""
+        row = clamp(int(y / self.cell_size), 0, self.rows - 1)
+        col = clamp(int(x / self.cell_size), 0, self.cols - 1)
         self.grid[row][col] = TargetCell(row=row, col=col, cell_size=self.cell_size)
         self.target_cells.append((row, col))
 
-    def place_agent(self, row, col):
+    def place_agent(self, x,y):
         """Place an agent at a specific position on the grid"""
+        row = clamp(int(y / self.cell_size), 0, self.rows - 1)
+        col = clamp(int(x / self.cell_size), 0, self.cols - 1)
         agent = Agent(row, col, cell_size=self.cell_size)
         self.grid[row][col] = agent
         self.agents.append(agent)
 
-    def place_obstacle(self, row, col):
+    def place_obstacle(self, x,y):
+        row = clamp(int(y / self.cell_size), 0, self.rows - 1)
+        col = clamp(int(x / self.cell_size), 0, self.cols - 1)
         self.grid[row][col] = ObstacleCell(row=row, col=col, cell_size=self.cell_size)
 
-    def is_cell_occupied(self, row, col):
+    def is_cell_occupied(self,x,y):
+        row = clamp(int(y / self.cell_size), 0, self.rows - 1)
+        col = clamp(int(x / self.cell_size), 0, self.cols - 1)
         cell = self.grid[row][col]
         return isinstance(cell, Agent)
 
@@ -117,7 +134,7 @@ class Grid:
                     continue
 
                 # Calculate the distance to this neighbor
-                new_distance = current_distance + grid.grid[current_row][current_col].cell_size  # Uniform cost for moving to any neighboring cell
+                new_distance = current_distance + grid.grid[current_row][current_col].cell_size
 
                 # Update the distance map and queue if we've found a shorter path
                 if new_distance < distance_map[neighbor_row][neighbor_col]:
