@@ -3,10 +3,11 @@ import math
 from decorator import log_decorator
 class Cell:
     #Grundbaustein, jede Zelle kennt seine Position auf dem Grid und den entsprechenden state
-    def __init__(self, row, col, state=0):
+    def __init__(self, row, col,cell_size, state=0):
         self.row = row  # Store the row position
         self.col = col  # Store the column position
         self.state = state  # 0 for dead/inactive, 1 for alive/active
+        self.cell_size = cell_size
 
     #Methode welche die naheliegendste Target Zelle anhand einer target list (Tuples aus Koordinaten) sucht
     @log_decorator
@@ -18,7 +19,7 @@ class Cell:
         for row, col in target_list:
             #print(row, col)
             #print(f"{row}-{self.row} ** 2 + ({col} - {self.col}) ** 2")
-            distance = math.sqrt((row - self.row) ** 2 + (col - self.col) ** 2)
+            distance = math.sqrt((row - self.row) ** 2 + (col - self.col) ** 2)*self.cell_size
             if distance < min_distance:
                 min_distance = distance
                 nearest_target = (row, col)
@@ -54,7 +55,7 @@ class Cell:
     @log_decorator
     def euclidean_distance_to(self, other):
        #Euklidische Distanz zwischen Zwei Zellen
-        return math.sqrt((self.row - other.row) ** 2 + (self.col - other.col) ** 2)
+        return math.sqrt((self.row - other.row) ** 2 + (self.col - other.col) ** 2)*self.cell_size
 
 
     #Jedes Feld hat einen Potentialwert zu der naheliegendsten Target Zelle
@@ -66,7 +67,7 @@ class Cell:
         #print(f"SELF: {self.row}, {self.col}")
 
         # Euclidean distance calculation ( Check if row and col are right)
-        distance = math.sqrt((target[0] - self.row) ** 2 + (target[1] - self.col) ** 2)
+        distance = self.euclidean_distance_to(target)
 
         # Return the negative distance as potential
         return -distance
@@ -80,8 +81,8 @@ class Cell:
 
 # Randzellen die das Feld umschliessen (etwa im Fall eines Raums mit Türen kann ein Border plaziert und danach Targets als Türen auf dem Border definiert werden)
 class BorderCell(Cell):
-    def __init__(self,row, col):
-        super().__init__(state=1, row=row, col=col)  # Border cells are always active
+    def __init__(self,row, col, cell_size):
+        super().__init__(state=1, row=row, col=col, cell_size=cell_size)  # Border cells are always active
 
 
     def is_passable(self):
@@ -92,16 +93,16 @@ class BorderCell(Cell):
 
 #Hindernisse auf dem Feld
 class ObstacleCell(Cell):
-    def __init__(self, row, col):
-        super().__init__(state=4, row=row, col=col)
+    def __init__(self, row, col, cell_size):
+        super().__init__(state=4, row=row, col=col, cell_size=cell_size)
     def is_passable(self):
         return False #Obstacles are impassable
     def __repr__(self):
         return '%'
 # Spawn Zelle. Generiert pro Zeitschritt eine vordefinierte Anzahl agenten auf seinen Moore Nachbar Zellen
 class SpawnCell(Cell):
-    def __init__(self, row, col):
-        super().__init__(state=2, row=row, col=col)  # Spawn cells are active
+    def __init__(self, row, col, cell_size):
+        super().__init__(state=2, row=row, col=col, cell_size=cell_size)  # Spawn cells are active
     #Spawn eine definierte Anzahl Agenten auf deinen Moore Nachbarn und füge die neuen Agenten der grid.agents liste Hinzu
 
     def spawn_agents(self, grid, max_agents):
@@ -118,7 +119,7 @@ class SpawnCell(Cell):
         for _ in range(agents_to_spawn):
             cell = valid_neighbors.pop(0)
             row, col = cell.row, cell.col
-            agent = Agent(row, col)
+            agent = Agent(row, col, cell_size=self.cell_size)
             grid.grid[row][col] = agent
             grid.agents.append(agent)
 
@@ -130,8 +131,8 @@ class SpawnCell(Cell):
 
 #Ziele: Agenten bewegen sich auf die Ziele
 class TargetCell(Cell):
-    def __init__(self, row, col):
-        super().__init__(state=3, row=row, col=col)  # Target cells are active
+    def __init__(self, row, col, cell_size):
+        super().__init__(state=3, row=row, col=col, cell_size=cell_size)  # Target cells are active
 
     def is_passable(self):
         return True  # Targets are passable to agents
@@ -139,8 +140,8 @@ class TargetCell(Cell):
     def __repr__(self):
         return 'T'  # Represent target cells with 'T'
 class Agent(Cell):
-    def __init__(self, row, col):
-        super().__init__(state=47, row=row, col=col) # Set the agent state as before
+    def __init__(self, row, col, cell_size):
+        super().__init__(state=47, row=row, col=col, cell_size=cell_size) # Set the agent state as before
         self.arrived = False
         #velocity wird später verwendet um die Gehgeschwindigkeit der einzelnen Agenten zu verändern
         self.velocity = random.uniform(0.75, 1.5)
@@ -299,7 +300,7 @@ class Agent(Cell):
 
         # Bewegung
         if best_move != self:
-            grid.grid[self.row][self.col] = Cell(self.row, self.col)  # Clear current position
+            grid.grid[self.row][self.col] = Cell(self.row, self.col, cell_size=self.cell_size)  # Clear current position
             grid.grid[best_move.row][best_move.col] = self  # Move agent
             self.row, self.col = best_move.row, best_move.col
 
@@ -307,7 +308,7 @@ class Agent(Cell):
         if smallest_distance == 1:
             self.arrived = True
             grid.agents.remove(self)  # Remove the agent from active list
-            grid.grid[self.row][self.col] = Cell(self.row, self.col)
+            grid.grid[self.row][self.col] = Cell(self.row, self.col, cell_size=self.cell_size)
             print(f"Agent at ({self.row}, {self.col}) is adjacent to the target and has arrived.")
 
 
