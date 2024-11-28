@@ -20,9 +20,21 @@ class TestAgentBehavior(unittest.TestCase):
         spawn_cell = self.grid.grid[1][1]  # Define a spawn cell
         self.assertIsInstance(spawn_cell, SpawnCell, "Expected a SpawnCell at (1, 1)")
 
+
         # Spawn agents in the first timestep
         for timestep in range(5):
             self.grid.update(self.grid.target_cells, timestep)
+
+   # one unit test tests only -> each class should test its method, and not via grid.update testing spawn agents. Please check again anc create real unit tests.
+
+    def test_spawn_agents(self):
+
+        #Zu Beginn noch keine Agenten in der Liste
+        self.assertEqual(len(self.grid.agents), 0)
+
+        # Update erzeugt neue Agenten
+        self.grid.update(self.grid.target_cells)
+
 
         # Verify all agents are in valid spawn neighbor cells
             spawn_neighbors = [

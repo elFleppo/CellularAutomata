@@ -1,6 +1,11 @@
+
 import random
 import math
+
 from decorator import log_decorator
+
+
+# one file per cell?
 class Cell:
     #Grundbaustein, jede Zelle kennt seine Position auf dem Grid und den entsprechenden state
     def __init__(self, row, col,cell_size, state=0):
@@ -19,11 +24,14 @@ class Cell:
         for row, col in target_list:
             #print(row, col)
             #print(f"{row}-{self.row} ** 2 + ({col} - {self.col}) ** 2")
+
             distance = math.sqrt((row - self.row) ** 2 + (col - self.col) ** 2)*self.cell_size
+
             if distance < min_distance:
                 min_distance = distance
                 nearest_target = (row, col)
         return nearest_target
+      
     @log_decorator
     def get_neighbors(self, grid, radius=2):
         """
@@ -59,7 +67,9 @@ class Cell:
 
 
     #Jedes Feld hat einen Potentialwert zu der naheliegendsten Target Zelle
+
     @log_decorator
+
     def potential(self, grid, target_list):
         """Calculate potential based on the negative Euclidean distance to the target cell."""
         target = self.find_target(target_list)
@@ -72,6 +82,7 @@ class Cell:
         # Return the negative distance as potential
         return -distance
     #is_passable (Kann ich von einem Agenten besucht werden). Evtl als Variable statt Methode?
+ # check naming
     def is_passable(self):
         return True  # Most cells are passable by default
     #Momentane Visualisierung noch in Konsole mit string repr. Für später dann Plots mit Daten aller Timesteps
@@ -104,6 +115,7 @@ class SpawnCell(Cell):
     def __init__(self, row, col, cell_size):
         super().__init__(state=2, row=row, col=col, cell_size=cell_size)  # Spawn cells are active
     #Spawn eine definierte Anzahl Agenten auf deinen Moore Nachbarn und füge die neuen Agenten der grid.agents liste Hinzu
+
 
     def spawn_agents(self, grid, max_agents):
         neighbors = self.get_neighbors(grid, radius=1)
@@ -264,8 +276,9 @@ class Agent(Cell):
 
 
     #Bewegungslogik
+    # sure this method does make sense here from a architectural point of view?
     def move_toward_highest_potential(self, grid, target_list):
-       #Denke den brauchen wir gar nicht da nach self.arrived = True das Grid den Agenten löscht
+
         if self.arrived:
             return
 
