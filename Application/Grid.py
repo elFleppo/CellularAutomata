@@ -5,7 +5,7 @@ import random
 import os
 import seaborn as sns
 import matplotlib.pyplot as plt
-import matplotlib.colors as mcolors
+import matplotlib.animation as animation
 import heapq
 
 
@@ -178,39 +178,31 @@ class Grid:
                 pass
             return "File created"
 
-    def plot_grid_state(grid, timestep):
-        #Plot Ausgabe für klarere Visualisierung, momentan noch über States für Farbwahl: Evtl besser mit cell.color?
-        # Convert grid to a DataFrame for easy visualization
-        data = [[cell.state for cell in row] for row in grid.grid]
-        # Define a custom color map for the cell states
-        custom_colors = {
-            0: 'white',  # Empty cells
-            1: 'yellow',  # Border cells
-            2: 'green',  # Spawn cells
-            3: 'red',  # Target cells
-            4: 'gray',  # Obstacles
-            47: 'blue'  # Agents
-        }
+class Visualization:
+    def __init__(self, grid):
+        self.grid = grid
+        self.fig, self.ax = plt.subplots()
 
-        # Create a colormap with `matplotlib.colors`
-        cmap = mcolors.ListedColormap([custom_colors[key] for key in sorted(custom_colors.keys())])
-        bounds = list(sorted(custom_colors.keys())) + [max(custom_colors.keys()) + 1]  # Add bounds for each state
-        norm = mcolors.BoundaryNorm(bounds, cmap.N)
+    def plot_grid_state(self, timestep):
+        data = [[cell.state for cell in row] for row in self.grid.grid]
 
-        # Plot with Seaborn
-        plt.figure(figsize=(8, 6))
-        sns.heatmap(
-            data,
-            cmap=cmap,
-            norm=norm,
-            linewidths=0.5,
-            linecolor='black',  # Gridlines for better clarity
-            cbar=False,  # Disable default color bar
-            xticklabels=False,  # Remove x-axis labels
-            yticklabels=False  # Remove y-axis labels
-        )
-        plt.title(f"Grid State at Timestep {timestep}")
-        plt.xlabel("Columns")
-        plt.ylabel("Rows")
+        cmap = plt.cm.get_cmap('binary')
+
+        self.ax.clear()
+        self.ax.imshow(data, cmap=cmap)
+        
+        self.ax.set_xticks(range(self.grid.cols))
+        self.ax.set_yticks(range(self.grid.rows))
+        
+        self.ax.set_title(f"Grid State at Timestep {timestep}")
+        self.ax.set_xlabel("Columns")
+        self.ax.set_ylabel("Rows")
+
+    def animate_grid_states(self, timesteps):
+        def update(frame):
+            self.grid.update(target_list=self.grid.target_cells, timestep=frame)
+            self.plot_grid_state(frame)
+
+        ani = animation.FuncAnimation(self.fig, update, frames=timesteps, interval=100)
         plt.show()
-
+ 
