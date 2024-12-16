@@ -301,7 +301,7 @@ class Agent(Cell):
             valid_neighbors = [
                 cell for layer in neighbors.values()
                 for cell in layer
-                if not isinstance(cell, ObstacleCell) and not grid.is_cell_occupied(cell.row, cell.col)
+                if not isinstance(cell, ObstacleCell) and not grid.is_cell_occupied(cell.row, cell.col) and not isinstance(cell, TargetCell)
             ]
 
             # Include the agent's current position as an option

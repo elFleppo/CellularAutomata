@@ -48,13 +48,14 @@ def RiMEA9(Doors):
     cols = 30
 
     spawn_cells = []
-    obstacle_cells = [(10, 12)]
+    obstacle_cells = []
     possible_targets = [(0, 4), (19, 25), (0, 25), (19, 4)]
     target_cells = []
-    for k in range(0,Doors):
-        target_cells.append(possible_targets[k])
 
-    grid = Grid(rows, cols, spawn_cells, obstacle_cells, target_cells)
+    grid = Grid(height=rows, length=cols, spawn_cells=[], obstacle_cells=[], target_cells=[], cell_size=0.5)
+    for k in range(0,Doors):
+        grid.place_target(possible_targets[k][0], possible_targets[k][1])
+
     
     i = 0
     while i != 1000:
@@ -63,6 +64,14 @@ def RiMEA9(Doors):
         if (x, y) not in grid.agents:
             grid.place_agent(x, y)
             i += 1
+
+
+    for i in range(0, 1000):
+        for cell in grid.grid:
+            if  isinstance(cell, Cell) and cell.row #gebiet abstecken:
+                grid.place_agent(cell[0], cell[1])
+
+
 
     return grid
     

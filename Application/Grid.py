@@ -33,8 +33,10 @@ class Grid:
         for row, col in spawn_cells:
             print(row, col)
             self.grid[row][col] = SpawnCell(row=row, col=col, cell_size=cell_size)
-        for row, col in obstacle_cells:
-            self.grid[row][col] = ObstacleCell(row=row, col=col, cell_size=cell_size)
+        if obstacle_cells is not None:
+            for row, col in obstacle_cells:
+                print(obstacle_cells)
+                self.grid[row][col] = ObstacleCell(row=row, col=col, cell_size=cell_size)
         for row, col in target_cells:
             self.grid[row][col] = TargetCell(row=row, col=col, cell_size=cell_size)
 
@@ -63,8 +65,8 @@ class Grid:
 
     def place_target(self, x, y):
         """Place a target cell at a specific position on the grid"""
-        row = clamp(int(y / self.cell_size), 0, self.rows - 1)
-        col = clamp(int(x / self.cell_size), 0, self.cols - 1)
+        row = clamp(int(x / self.cell_size), 0, self.rows - 1)
+        col = clamp(int(y / self.cell_size), 0, self.cols - 1)
         self.grid[row][col] = TargetCell(row=row, col=col, cell_size=self.cell_size)
         self.target_cells.append((row, col))
 
@@ -73,8 +75,9 @@ class Grid:
         row = clamp(int(y / self.cell_size), 0, self.rows - 1)
         col = clamp(int(x / self.cell_size), 0, self.cols - 1)
         agent = Agent(row, col, cell_size=self.cell_size)
-        self.grid[row][col] = agent
-        self.agents.append(agent)
+        if isinstance(self.grid[row][col], Cell) and not isinstance(self.grid[row][col], TargetCell):
+            self.grid[row][col] = agent
+            self.agents.append(agent)
 
     def place_obstacle(self, x,y):
         row = clamp(int(y / self.cell_size), 0, self.rows - 1)

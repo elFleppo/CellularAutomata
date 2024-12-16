@@ -24,10 +24,10 @@ timesteps = 150
 
 for i in range(timesteps):
     grid.update(target_list=grid.target_cells, timestep=i)
-    
-    visualization.plot_grid_state(i)
-    plt.pause(0.1)  
-    
+    grid.plot_grid_state(timestep=i)
+    #visualization.plot_grid_state(i)
+    #plt.pause(0.1)
+
     agent_count = len(grid.agents)
     agent_count_list.append(agent_count)
 
@@ -37,7 +37,7 @@ for i in range(timesteps):
         total_istance_to_target = 0
         for agent in grid.agents:
             target = agent.find_target(grid.target_cells)
-            total_distance_to_target += agent.euclidean_distance_to(Cell(target[0], target[1], cell_size=grid.cell_size))
+            total_distance_to_target += agent.euclidean_distance_to(grid.grid[target[0]][target[1]])
         
         average_distance.append(total_distance_to_target / len(grid.agents))
     else:
