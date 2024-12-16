@@ -3,7 +3,7 @@ from Cell import Cell, SpawnCell, BorderCell, ObstacleCell, Agent, TargetCell
 import matplotlib.pyplot as plt
 import numpy as np 
 from Grid import Grid, Visualization
-from tests import RiMEA9
+from tests import room_square, ChickenTest, RiMEA9, RiMEA4
 '''''''''
 rows = 20
 cols = 20
@@ -15,12 +15,12 @@ target_cells = [(2, 2)]
 
 grid = Grid(rows, cols, spawn_cells, target_cells, obstacle_cells)
 '''''''''
-grid = RiMEA9(4)
+grid = RiMEA4
 visualization = Visualization(grid)
 
 agent_count_list = []
 average_distance = [] 
-timesteps = 150
+timesteps = 10
 
 for i in range(timesteps):
     grid.update(target_list=grid.target_cells, timestep=i)
