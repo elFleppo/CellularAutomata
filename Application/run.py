@@ -3,22 +3,27 @@ from Cell import Cell, SpawnCell, BorderCell, ObstacleCell, Agent, TargetCell
 import matplotlib.pyplot as plt
 import numpy as np 
 from Grid import Grid, Visualization
-
+from tests import RiMEA9
+'''''''''
 rows = 20
 cols = 20
 timesteps = 50
 spawn_cells = [(15, 2),(15, 12)]
 obstacle_cells = [(6, 0),(6, 1),(6, 2),(6, 3),(6, 4),(6, 5),(6, 6),(6, 7),(6, 8),(6, 9),(6, 10),(6, 11),(6, 12),(6, 13),(6, 14),(6, 15),(6, 16),(6, 17),(6, 19),
                   (9, 0),(9, 1),(9, 2),(9, 4),(9, 5),(9, 6),(9, 7),(9, 8),(9, 9),(9, 10),(9, 11),(9, 12),(9, 13),(9, 14),(9, 15),(9, 16),(9, 17),(9, 18), (9, 19)]
-target_cells = [(2, 2)] 
+target_cells = [(2, 2)]
 
+grid = Grid(rows, cols, spawn_cells, target_cells, obstacle_cells)
+'''''''''
+grid = RiMEA9(4)
 visualization = Visualization(grid)
 
 agent_count_list = []
 average_distance = [] 
+timesteps = 150
 
 for i in range(timesteps):
-    grid.update(target_list=target_cells, timestep=i)
+    grid.update(target_list=grid.target_cells, timestep=i)
     
     visualization.plot_grid_state(i)
     plt.pause(0.1)  
@@ -31,7 +36,7 @@ for i in range(timesteps):
     if len(grid.agents) > 0:
         total_istance_to_target = 0
         for agent in grid.agents:
-            target = agent.find_target(target_cells)
+            target = agent.find_target(grid.target_cells)
             total_distance_to_target += agent.euclidean_distance_to(Cell(target[0], target[1], cell_size=grid.cell_size))
         
         average_distance.append(total_distance_to_target / len(grid.agents))
