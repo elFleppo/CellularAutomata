@@ -15,7 +15,7 @@ target_cells = [(2, 2)]
 
 grid = Grid(rows, cols, spawn_cells, target_cells, obstacle_cells)
 '''''''''
-grid = RiMEA4
+grid = RiMEA4()
 visualization = Visualization(grid)
 
 agent_count_list = []

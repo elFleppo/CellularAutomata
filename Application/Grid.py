@@ -9,7 +9,7 @@ import matplotlib.animation as animation
 import heapq
 import matplotlib.colors as mcolors
 import math
-
+import numpy as np
 def clamp(value, min_value, max_value):
     return max(min(value, max_value), min_value)
 #Grid Klasse: Auf dem Grid befinden sich Zellobjekte und über das Grid wird das update() der Zellen durchgeführt
@@ -187,19 +187,24 @@ class Grid:
         Perform reverse flood-fill starting from the target (target_row, target_col).
         Computes a distance map where cells closer to the target have smaller values.
         Skips impassable cells (e.g., obstacles, borders).
-        Returns the distance map.
+
+        Parameters:
+            target_row (int): Row index of the target.
+            target_col (int): Column index of the target.
+            target_state (int): State of the target cell.
+
+        Returns:
+            List[List[float]]: A 2D distance map with Manhattan distances to the target.
         """
         # Ensure the target cell is valid
         if not (0 <= target_row < self.rows and 0 <= target_col < self.cols):
-            print("target out of bounds")
-            return None  # Invalid target position
+            raise ValueError("Target coordinates are out of grid bounds.")
 
         target_cell = self.grid[target_row][target_col]
 
-        # Early exit if the target cell doesn't match the target state
+        # Early exit if the target cell doesn't match the target state or is impassable
         if target_cell.state != target_state or not target_cell.is_passable():
-            print("no targets found")
-            return None
+            raise ValueError("Target cell is invalid or impassable.")
 
         # Initialize the distance map with infinity
         distance_map = [[float('inf')] * self.cols for _ in range(self.rows)]
@@ -208,28 +213,30 @@ class Grid:
         # Initialize the queue for BFS with the target cell
         queue = [(target_row, target_col)]
 
+        # Directions for the 4-connected neighborhood (up, down, left, right)
+        directions = [(-1, 0), (1, 0), (0, -1), (0, 1)]
+
         while queue:
             current_row, current_col = queue.pop(0)
-            current_cell = self.grid[current_row][current_col]
             current_distance = distance_map[current_row][current_col]
 
-            # Get neighbors of the current cell
-            neighbors = current_cell.get_neighbors(self, radius=1)
+            # Get neighbors of the current cell (4 directions: up, down, left, right)
+            for dr, dc in directions:
+                neighbor_row, neighbor_col = current_row + dr, current_col + dc
 
-            for layer in neighbors.values():
-                for neighbor in layer:
-                    neighbor_row, neighbor_col = neighbor.row, neighbor.col
+                # Skip if out of bounds
+                if not (0 <= neighbor_row < self.rows and 0 <= neighbor_col < self.cols):
+                    continue
 
-                    # Skip if the neighbor:
-                    # - Is already visited (has a valid distance)
-                    # - Is impassable (e.g., obstacle, border)
-                    if distance_map[neighbor_row][neighbor_col] != float('inf') or not neighbor.is_passable():
-                        continue
+                neighbor_cell = self.grid[neighbor_row][neighbor_col]
 
-                    # Update the distance to this neighbor
-                    distance_map[neighbor_row][neighbor_col] = current_distance + current_cell.cell_size
-                    # Add the neighbor to the queue for further exploration
-                    queue.append((neighbor_row, neighbor_col))
+                # Skip impassable cells or already visited cells
+                if not neighbor_cell.is_passable() or distance_map[neighbor_row][neighbor_col] != float('inf'):
+                    continue
+
+                # Update the distance for the neighbor
+                distance_map[neighbor_row][neighbor_col] = current_distance + 1
+                queue.append((neighbor_row, neighbor_col))
 
         return distance_map
 
@@ -329,6 +336,27 @@ class Grid:
         plt.ylabel("Rows")
         plt.show()
 
+    def plot_distance_map(self, distance_map, title="Distance Map"):
+        """
+        Plots the given distance map as a heatmap using matplotlib and seaborn.
+
+        Parameters:
+            distance_map (List[List[float]]): The 2D distance map to plot.
+            title (str): Title for the heatmap.
+        """
+        # Convert distance map to a numpy array for easier handling
+        distance_array = np.array(distance_map)
+
+        # Create a heatmap using seaborn
+        plt.figure(figsize=(8, 6))
+        sns.heatmap(distance_array, annot=False, cmap="YlGnBu", cbar=True, square=True, linewidths=0.5)
+
+        # Add a title and labels
+        plt.title(title)
+        plt.xlabel("Columns")
+        plt.ylabel("Rows")
+        plt.show()
+
 class Visualization:
     def __init__(self, grid):
         self.grid = grid
@@ -355,5 +383,5 @@ class Visualization:
             self.plot_grid_state(frame)
 
         ani = animation.FuncAnimation(self.fig, update, frames=timesteps, interval=100)
-        plt.show()
+        plt.show(ani)
  
