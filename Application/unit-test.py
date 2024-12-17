@@ -174,7 +174,7 @@ class TestDistanceMaps(unittest.TestCase):
             movement_method="dijkstra"
         )
 
-    def test_dijkstra_distance_map_fixed(self):
+    def test_dijkstra_distance_map(self):
         # Create a grid with a target at (4, 4)
         grid = Grid(
             length=5,
@@ -213,7 +213,7 @@ class TestDistanceMaps(unittest.TestCase):
                 )
         grid.plot_distance_map(distance_map)
 
-    def test_flood_fill_distance_map_fixed(self):
+    def test_flood_fill_distance_map(self):
         # Create a simple 5x5 grid with a target at (2, 2)
         grid = Grid(
             length=5,
