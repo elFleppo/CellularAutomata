@@ -10,6 +10,7 @@ import heapq
 import matplotlib.colors as mcolors
 import math
 import numpy as np
+#Helper function for convert
 def clamp(value, min_value, max_value):
     return max(min(value, max_value), min_value)
 #Grid Klasse: Auf dem Grid befinden sich Zellobjekte und über das Grid wird das update() der Zellen durchgeführt
@@ -41,7 +42,10 @@ class Grid:
         for row, col in target_cells:
             self.grid[row][col] = TargetCell(row=row, col=col, cell_size=cell_size)
 
-
+    def meter_to_rowcol(self, x, y):
+        col = clamp(int(x / self.cell_size), 0, self.cols - 1)
+        row = clamp(int(y/ self.cell_size), 0, self.rows - 1)
+        return row, col
     def log_grid_state(self, timestep, log_file="logs/grid_states.log"):
         """Log the entire grid's state for visualization."""
         with open(log_file, "a") as logfile:
@@ -92,35 +96,36 @@ class Grid:
     #Die Untenstehenden methoden erlauben eine Interaktion mit dem Grid ausserhalb der initialisierung
     def place_spawn_cell(self, x,y):
         """Place a spawn cell at a specific position on the grid"""
-        row = clamp(int(y/ self.cell_size), 0, self.rows - 1)
-        col = clamp(int(x / self.cell_size), 0, self.cols - 1)
+        row, col = self.meter_to_rowcol(x, y)
         self.grid[row][col] = SpawnCell(row=row, col=col, cell_size=self.cell_size)
         self.spawn_cells.append((row, col))
 
+    def place_empty_cell(self, x,y):
+        """Place a spawn cell at a specific position on the grid"""
+        row, col = self.meter_to_rowcol(x, y)
+        self.grid[row][col] = Cell(row=row, col=col, cell_size=self.cell_size)
+
+
     def place_target(self, x, y):
         """Place a target cell at a specific position on the grid"""
-        row = clamp(int(y/ self.cell_size), 0, self.rows - 1)
-        col = clamp(int(x / self.cell_size), 0, self.cols - 1)
+        row, col = self.meter_to_rowcol(x, y)
         self.grid[row][col] = TargetCell(row=row, col=col, cell_size=self.cell_size)
         self.target_cells.append((row, col))
 
     def place_agent(self, x,y):
         """Place an agent at a specific position on the grid"""
-        row = clamp(int(y/ self.cell_size), 0, self.rows - 1)
-        col = clamp(int(x / self.cell_size), 0, self.cols - 1)
+        row, col = self.meter_to_rowcol(x, y)
         agent = Agent(row, col, cell_size=self.cell_size)
         if isinstance(self.grid[row][col], Cell) and not isinstance(self.grid[row][col], TargetCell):
             self.grid[row][col] = agent
             self.agents.append(agent)
 
     def place_obstacle(self, x,y):
-        row = clamp(int(y/ self.cell_size), 0, self.rows - 1)
-        col = clamp(int(x / self.cell_size), 0, self.cols - 1)
+        row, col = self.meter_to_rowcol(x, y)
         self.grid[row][col] = ObstacleCell(row=row, col=col, cell_size=self.cell_size)
 
     def is_cell_occupied(self,x,y):
-        row = clamp(int(y/ self.cell_size), 0, self.rows - 1)
-        col = clamp(int(x / self.cell_size), 0, self.cols - 1)
+        row, col = self.meter_to_rowcol(x, y)
         cell = self.grid[row][col]
         return isinstance(cell, Agent)
 
