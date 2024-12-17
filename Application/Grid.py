@@ -300,11 +300,14 @@ class Grid:
                 pass
             return "File created"
 
-    def plot_grid_state(grid, timestep):
-        #Plot Ausgabe für klarere Visualisierung, momentan noch über States für Farbwahl: Evtl besser mit cell.color?
-        # Convert grid to a DataFrame for easy visualization
-        data = [[cell.state for cell in row] for row in grid.grid]
-        # Define a custom color map for the cell states
+class Visualization:
+    def __init__(self, grid):
+        self.grid = grid
+        self.fig, self.ax = plt.subplots()
+
+    def plot_grid_state(self, timestep):
+        data = [[cell.state for cell in row] for row in self.grid.grid]
+
         custom_colors = {
             0: 'white',  # Empty cells
             1: 'yellow',  # Border cells
@@ -314,64 +317,13 @@ class Grid:
             47: 'blue'  # Agents
         }
 
-        # Create a colormap with `matplotlib.colors`
         cmap = mcolors.ListedColormap([custom_colors[key] for key in sorted(custom_colors.keys())])
-        bounds = list(sorted(custom_colors.keys())) + [max(custom_colors.keys()) + 1]  # Add bounds for each state
+        bounds = list(sorted(custom_colors.keys())) + [max(custom_colors.keys()) + 1]  
         norm = mcolors.BoundaryNorm(bounds, cmap.N)
 
-        # Plot with Seaborn
-        plt.figure(figsize=(8, 6))
-        sns.heatmap(
-            data,
-            cmap=cmap,
-            norm=norm,
-            linewidths=0.5,
-            linecolor='black',  # Gridlines for better clarity
-            cbar=False,  # Disable default color bar
-            xticklabels=False,  # Remove x-axis labels
-            yticklabels=False  # Remove y-axis labels
-        )
-        plt.title(f"Grid State at Timestep {timestep}")
-        plt.xlabel("Columns")
-        plt.ylabel("Rows")
-        plt.show()
-
-    def plot_distance_map(self, distance_map, title="Distance Map"):
-        """
-        Plots the given distance map as a heatmap using matplotlib and seaborn.
-
-        Parameters:
-            distance_map (List[List[float]]): The 2D distance map to plot.
-            title (str): Title for the heatmap.
-        """
-        # Convert distance map to a numpy array for easier handling
-        distance_array = np.array(distance_map)
-
-        # Create a heatmap using seaborn
-        plt.figure(figsize=(8, 6))
-        sns.heatmap(distance_array, annot=False, cmap="YlGnBu", cbar=True, square=True, linewidths=0.5)
-
-        # Add a title and labels
-        plt.title(title)
-        plt.xlabel("Columns")
-        plt.ylabel("Rows")
-        plt.show()
-
-class Visualization:
-    def __init__(self, grid):
-        self.grid = grid
-        self.fig, self.ax = plt.subplots()
-
-    def plot_grid_state(self, timestep):
-        data = [[cell.state for cell in row] for row in self.grid.grid]
-
-        cmap = plt.cm.get_cmap('binary')
-
         self.ax.clear()
-        self.ax.imshow(data, cmap=cmap)
+        self.ax.imshow(data, cmap=cmap, norm=norm)
         
-        self.ax.set_xticks(range(self.grid.cols))
-        self.ax.set_yticks(range(self.grid.rows))
         
         self.ax.set_title(f"Grid State at Timestep {timestep}")
         self.ax.set_xlabel("Columns")
@@ -382,6 +334,6 @@ class Visualization:
             self.grid.update(target_list=self.grid.target_cells, timestep=frame)
             self.plot_grid_state(frame)
 
-        ani = animation.FuncAnimation(self.fig, update, frames=timesteps, interval=100)
+        ani = animation.FuncAnimation(self.fig, update, frames=timesteps, interval=10)
+        plt.show()
         plt.show(ani)
- 
