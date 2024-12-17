@@ -126,14 +126,15 @@ class SpawnCell(Cell):
         ]
 
         random.shuffle(valid_neighbors)
-
+        chance = random.randrange(0,1)
         agents_to_spawn = min(max_agents, len(valid_neighbors))
-        for _ in range(agents_to_spawn):
-            cell = valid_neighbors.pop(0)
-            row, col = cell.row, cell.col
-            agent = Agent(row, col, cell_size=self.cell_size)
-            grid.grid[row][col] = agent
-            grid.agents.append(agent)
+        if chance < 0.8:
+            for _ in range(agents_to_spawn):
+                cell = valid_neighbors.pop(0)
+                row, col = cell.row, cell.col
+                agent = Agent(row, col, cell_size=self.cell_size)
+                grid.grid[row][col] = agent
+                grid.agents.append(agent)
 
     def is_passable(self):
         return False  #Agenten können nicht Spawnzellen laufen

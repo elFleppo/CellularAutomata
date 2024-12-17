@@ -58,8 +58,8 @@ class Grid:
     #Die Untenstehenden methoden erlauben eine Interaktion mit dem Grid ausserhalb der initialisierung
     def place_spawn_cell(self, x,y):
         """Place a spawn cell at a specific position on the grid"""
-        row = clamp(int(y / self.cell_size), 0, self.rows - 1)
-        col = clamp(int(x / self.cell_size), 0, self.cols - 1)
+        row = clamp(int(x / self.cell_size), 0, self.rows - 1)
+        col = clamp(int(y / self.cell_size), 0, self.cols - 1)
         self.grid[row][col] = SpawnCell(row=row, col=col, cell_size=self.cell_size)
         self.spawn_cells.append((row, col))
 
@@ -72,21 +72,21 @@ class Grid:
 
     def place_agent(self, x,y):
         """Place an agent at a specific position on the grid"""
-        row = clamp(int(y / self.cell_size), 0, self.rows - 1)
-        col = clamp(int(x / self.cell_size), 0, self.cols - 1)
+        row = clamp(int(x / self.cell_size), 0, self.rows - 1)
+        col = clamp(int(y / self.cell_size), 0, self.cols - 1)
         agent = Agent(row, col, cell_size=self.cell_size)
         if isinstance(self.grid[row][col], Cell) and not isinstance(self.grid[row][col], TargetCell):
             self.grid[row][col] = agent
             self.agents.append(agent)
 
     def place_obstacle(self, x,y):
-        row = clamp(int(y / self.cell_size), 0, self.rows - 1)
-        col = clamp(int(x / self.cell_size), 0, self.cols - 1)
+        row = clamp(int(x / self.cell_size), 0, self.rows - 1)
+        col = clamp(int(y / self.cell_size), 0, self.cols - 1)
         self.grid[row][col] = ObstacleCell(row=row, col=col, cell_size=self.cell_size)
 
     def is_cell_occupied(self,x,y):
-        row = clamp(int(y / self.cell_size), 0, self.rows - 1)
-        col = clamp(int(x / self.cell_size), 0, self.cols - 1)
+        row = clamp(int(x / self.cell_size), 0, self.rows - 1)
+        col = clamp(int(y / self.cell_size), 0, self.cols - 1)
         cell = self.grid[row][col]
         return isinstance(cell, Agent)
 

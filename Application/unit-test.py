@@ -9,8 +9,9 @@ class TestAgentBehavior(unittest.TestCase):
 
         # Einfaches 5x5 Grid
         self.grid = Grid(
-            rows=5,
-            cols=5,
+            length=5,
+            height=5,
+            cell_size=1,
             spawn_cells=[(1, 1)],
             target_cells=[(3, 3)],
             obstacle_cells=[]#Momentan noch keine Kolisionsvermeidung
@@ -33,11 +34,11 @@ class TestAgentBehavior(unittest.TestCase):
         self.assertEqual(len(self.grid.agents), 0)
 
         # Update erzeugt neue Agenten
-        self.grid.update(self.grid.target_cells)
+        self.grid.update(self.grid.target_cells, timestep=1)
 
 
         # Verify all agents are in valid spawn neighbor cells
-            spawn_neighbors = [
+        spawn_neighbors = [
                 (0, 0), (0, 1), (0, 2),
                 (1, 0), (1, 2),
                 (2, 0), (2, 1), (2, 2),
@@ -49,7 +50,7 @@ class TestAgentBehavior(unittest.TestCase):
 
     def test_agent_removal_on_arrival(self):
         # Plaziere Agent bei Ziel
-        agent = Agent(2, 2)
+        agent = Agent(2, 2, cell_size=self.grid.cell_size)
         self.grid.grid[2][2] = agent
         self.grid.agents.append(agent)
 
@@ -77,25 +78,28 @@ class TestAgentBehavior(unittest.TestCase):
 class TestGrid(unittest.TestCase):
     def setUp(self):
 
-
+        # Einfaches 5x5 Grid
         self.grid = Grid(
-            rows=12,
-            cols=12,
-            spawn_cells=[(6, 6)],
-            target_cells=[(2, 5), (8, 9)],
-            obstacle_cells=[(4, 2)]#Momentan noch keine Kolisionsvermeidung
+            length=12,
+            height=12,
+            cell_size=1,
+            spawn_cells=[(1, 1)],
+            target_cells=[(3, 3)],
+            obstacle_cells=[]#Momentan noch keine Kolisionsvermeidung
         )
 
 
 class TestCellNeighbors(unittest.TestCase):
     def setUp(self):
-        # Create a 5x5 grid for testing
+
+        # Einfaches 5x5 Grid
         self.grid = Grid(
-            rows=5,
-            cols=5,
-            spawn_cells=[],
-            target_cells=[],
-            obstacle_cells=[]
+            length=5,
+            height=5,
+            cell_size=1,
+            spawn_cells=[(1, 1)],
+            target_cells=[(3, 3)],
+            obstacle_cells=[]#Momentan noch keine Kolisionsvermeidung
         )
         # Place a Cell in the middle for normal case and edges for edge cases
         self.central_cell = self.grid.grid[2][2]  # Center of the grid
