@@ -4,20 +4,29 @@ import matplotlib.pyplot as plt
 import numpy as np 
 from Grid import Grid, Visualization
 from tests import room_square, ChickenTest, RiMEA9, RiMEA4
+'''''''''
+rows = 20
+cols = 20
+timesteps = 50
+spawn_cells = [(15, 2),(15, 12)]
+obstacle_cells = [(6, 0),(6, 1),(6, 2),(6, 3),(6, 4),(6, 5),(6, 6),(6, 7),(6, 8),(6, 9),(6, 10),(6, 11),(6, 12),(6, 13),(6, 14),(6, 15),(6, 16),(6, 17),(6, 19),
+                  (9, 0),(9, 1),(9, 2),(9, 4),(9, 5),(9, 6),(9, 7),(9, 8),(9, 9),(9, 10),(9, 11),(9, 12),(9, 13),(9, 14),(9, 15),(9, 16),(9, 17),(9, 18), (9, 19)]
+target_cells = [(2, 2)]
 
-grid = room_square()
+grid = Grid(rows, cols, spawn_cells, target_cells, obstacle_cells)
+'''''''''
+grid = RiMEA4()
 visualization = Visualization(grid)
 
 agent_count_list = []
 average_distance = [] 
-density_list = []
-
 timesteps = 10
 
 for i in range(timesteps):
     grid.update(target_list=grid.target_cells, timestep=i)
-    visualization.plot_grid_state(i)
-    plt.pause(0.01)
+    grid.plot_grid_state(timestep=i)
+    #visualization.plot_grid_state(i)
+    #plt.pause(0.1)
 
     agent_count = len(grid.agents)
     agent_count_list.append(agent_count)
@@ -34,38 +43,21 @@ for i in range(timesteps):
     else:
         average_distance.append(np.nan)  
 
+   
 
-    # dichte berechnen
-    cells_with_agents = 0
-    for row in grid.grid:
-        for cell in row:
-            if isinstance(cell, Agent):
-                cells_with_agents += 1
+plt.figure(figsize=(10,5)) 
 
-    density = cells_with_agents / (grid.rows * grid.cols)
-    density_list.append(density)
-
-
-plt.figure(figsize=(15,5))  
-
-plt.subplot(1, 3, 1)
+plt.subplot(1, 2, 1)
 plt.plot(agent_count_list)
 plt.title('Anzahl Agenten über Zeit')
 plt.xlabel('Zeitschritt')
 plt.ylabel('Anzahl Agenten') 
 
-plt.subplot(1, 3, 2)
+plt.subplot(1, 2, 2)
 plt.plot(average_distance)
 plt.title('Mittlere Distanz Agenten zum Ziel')
 plt.xlabel('Zeitschritt')
 plt.ylabel('Distanz') 
-
-
-plt.subplot(1, 3, 3)
-plt.plot(density_list)
-plt.title('Dichte der Agenten über Zeit')
-plt.xlabel('Zeitschritt')
-plt.ylabel('Dichte') 
 
 plt.tight_layout()
 plt.show()
