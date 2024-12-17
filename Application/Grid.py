@@ -399,4 +399,3 @@ class Visualization:
 
         ani = animation.FuncAnimation(self.fig, update, frames=timesteps, interval=10)
         plt.show()
-       # plt.show(ani)

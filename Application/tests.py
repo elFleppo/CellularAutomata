@@ -15,20 +15,46 @@ def room_square():
     return grid
 
 
-def ChickenTest():
-    rows = 20
-    cols = 20
+def ChickenTest(movement_method):
+    height = 20
+    length = 20
+
+    grid = Grid(height=height, length=length, spawn_cells=[], obstacle_cells=[], target_cells=[], cell_size=0.5, movement_method=movement_method)
+
+    # place obstacles
+    obstacles = grid.select_area_by_coordinates(6, 6, 14, 6)
+    obstacles += grid.select_area_by_coordinates(6, 6, 6, 10)
+    obstacles += grid.select_area_by_coordinates(14, 6, 14, 10)
+
+    for cell in obstacles:
+        grid.place_obstacle(cell.row, cell.col)
+
+    # place target
+    target = grid.select_area_by_coordinates(10, 0, 11, 0)
+    
+    for cell in target:
+        grid.place_target(cell.row, cell.col)
+    
+    # place agent
+    agent_cell = grid.select_area_by_coordinates(10, 7, 11, 7)
+
+    for cell in agent_cell:
+        grid.place_agent(cell.row, cell.col)
 
 
-def RiMEA9(Doors):
+    return grid
+
+
+def RiMEA9(Doors, movement_method):
     room_height = 20
     room_length = 30
     frameSize = 5
     height = room_height+2*frameSize
     length = room_length+2*frameSize
 
-    grid = Grid(height=height, length=length, spawn_cells=[], obstacle_cells=[], target_cells=[], cell_size=0.5, movement_method="floodfill")
+    grid = Grid(height=height, length=length, spawn_cells=[], obstacle_cells=[], target_cells=[], cell_size=0.5, movement_method=movement_method)
 
+    # place obstacles and targets
     vertical_placement = grid.select_area_by_coordinates(frameSize, frameSize, frameSize, height-frameSize) # Obstacle-Zellen links
     vertical_placement += grid.select_area_by_coordinates(length-frameSize, frameSize, length-frameSize, height-frameSize) # Obstacle-Zellen rechts
     horizontal_placement = grid.select_area_by_coordinates(frameSize, frameSize, length-frameSize, frameSize) # Obstacle-Zellen oben
@@ -54,19 +80,26 @@ def RiMEA9(Doors):
         door_cells += grid.select_area_by_coordinates(length-frameSize-5, frameSize, length-frameSize-4, frameSize)
         target_placement = grid.select_area_by_coordinates(frameSize+4, 0, frameSize+5, 0)
         target_placement += grid.select_area_by_coordinates(length-frameSize-5, height, length-frameSize-4, height)
+        target_placement += grid.select_area_by_coordinates(length-frameSize-5, 0, length-frameSize-4, 0)
     else:
         # hiermit wird abgefangen, falls Zahlen ausserhalb der Menge 1-3 eingegeben werden - dann default 4
         door_cells = grid.select_area_by_coordinates(frameSize+4, frameSize, frameSize+5, frameSize)
         door_cells += grid.select_area_by_coordinates(length-frameSize-5, height-frameSize, length-frameSize-4, height-frameSize)
         door_cells += grid.select_area_by_coordinates(length-frameSize-5, frameSize, length-frameSize-4, frameSize)
         door_cells += grid.select_area_by_coordinates(frameSize+4, height-frameSize, frameSize+5, height-frameSize)
+        target_placement = grid.select_area_by_coordinates(frameSize+4, 0, frameSize+5, 0)
+        target_placement += grid.select_area_by_coordinates(length-frameSize-5, height, length-frameSize-4, height)
+        target_placement += grid.select_area_by_coordinates(length-frameSize-5, 0, length-frameSize-4, 0)
+        target_placement += grid.select_area_by_coordinates(frameSize+4, height, frameSize+5, height)
 
-    for cell in door_cells:
-        grid.place_empty_cell(cell.row, cell.col)
-    
     for cell in target_placement:
         grid.place_target(cell.row, cell.col)
 
+    # place doors
+    for cell in door_cells:
+        grid.place_empty_cell(cell.row, cell.col)
+
+    # place agents
     potential_agent_cells = grid.select_area_by_coordinates(frameSize+2, frameSize+2, length-frameSize-2, height-frameSize-2)
 
     for cell in potential_agent_cells:
@@ -74,9 +107,11 @@ def RiMEA9(Doors):
         if chance <= 5 and len(grid.agents)<=1000:
             grid.place_agent(cell.row, cell.col)
 
+
     return grid
 
 
+# Anpassungen aus den anderen Maps müssen für RiMEA4 noch übernommen werden
 def RiMEA4():
     height = 10
     length = 150

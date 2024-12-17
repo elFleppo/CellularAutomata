@@ -4,8 +4,8 @@ import matplotlib.pyplot as plt
 import numpy as np 
 from Grid import Grid, Visualization
 from tests import room_square, ChickenTest, RiMEA9, RiMEA4
-
-grid = RiMEA9(1)
+import tests
+grid = RiMEA9(1, "floodfill")
 visualization = Visualization(grid)
 
 agent_count_list = []
@@ -15,9 +15,9 @@ timesteps = 10
 
 for i in range(timesteps):
     grid.update(target_list=grid.target_cells, timestep=i)
-    visualization.plot_grid_state(i)
-    #grid.plot_grid_state(i)
-    plt.pause(0.01)
+    #visualization.plot_grid_state(i)
+    grid.plot_grid_state(i)
+    plt.pause(0.2)
 
     agent_count = len(grid.agents)
     agent_count_list.append(agent_count)
@@ -34,15 +34,7 @@ for i in range(timesteps):
     else:
         average_distance.append(np.nan)  
 
-       # dichte berechnen
-    cells_with_agents = 0
-    for row in grid.grid:
-        for cell in row:
-            if isinstance(cell, Agent):
-                cells_with_agents += 1
 
-    density = cells_with_agents / (grid.rows * grid.cols)
-    density_list.append(density)
 
 plt.figure(figsize=(10,5)) 
 
@@ -59,11 +51,6 @@ plt.xlabel('Zeitschritt')
 plt.ylabel('Distanz') 
 
 
-plt.subplot(1, 3, 3)
-plt.plot(density_list)
-plt.title('Dichte der Agenten über Zeit')
-plt.xlabel('Zeitschritt')
-plt.ylabel('Dichte') 
 
 plt.tight_layout()
 plt.show()
