@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 import heapq
 import matplotlib.colors as mcolors
+import math
 
 def clamp(value, min_value, max_value):
     return max(min(value, max_value), min_value)
@@ -125,35 +126,40 @@ class Grid:
 
 
     #Helper Methode für Djkstra Algorithmus
-    def compute_distance_map(grid, target):
+    def compute_distance_map(self, target):
         """
         Compute the shortest path distances from the target to all cells using Dijkstra's algorithm.
-        Neighbors are retrieved using the `get_neighbors(radius=1)` method.
-        """
-        # Get grid dimensions
-        rows, cols = grid.rows, grid.cols
+        This version calculates direct Euclidean distance for each cell to avoid cumulative errors.
 
-        # Initialize distance map with "infinity" (unreachable by default)
+        Parameters:
+            target (tuple): Coordinates of the target cell as (row, col).
+
+        Returns:
+            List[List[float]]: A 2D distance map where each cell contains the shortest distance to the target.
+        """
+        rows, cols = self.rows, self.cols
+
+        # Initialize the distance map with infinity
         distance_map = [[float('inf')] * cols for _ in range(rows)]
 
         # Set the distance of the target cell to 0
         target_row, target_col = target
         distance_map[target_row][target_col] = 0
 
-        # Priority queue for processing cells (distance, row, column)
+        # Priority queue for processing cells (distance, row, col)
         queue = [(0, target_row, target_col)]
 
         while queue:
-            # Get the next cell with the smallest distance
+            # Get the cell with the smallest distance
             current_distance, current_row, current_col = heapq.heappop(queue)
 
-            # Skip if we've already found a shorter distance for this cell
+            # Skip processing if we've already found a shorter path to this cell
             if current_distance > distance_map[current_row][current_col]:
                 continue
 
-            # Get the neighbors using the `get_neighbors` method
-            current_cell = grid.grid[current_row][current_col]
-            neighbors = current_cell.get_neighbors(grid, radius=1)
+            # Get the current cell and its neighbors
+            current_cell = self.grid[current_row][current_col]
+            neighbors = current_cell.get_neighbors(self, radius=1)
 
             for layer in neighbors.values():
                 for neighbor in layer:
@@ -163,15 +169,17 @@ class Grid:
                     if not neighbor.is_passable():
                         continue
 
-                    # Calculate the new distance to this neighbor
-                    new_distance = current_distance + current_cell.euclidean_distance_to(neighbor)
+                    # Calculate the direct Euclidean distance from the target
+                    direct_distance = math.sqrt((target_row - neighbor_row) ** 2 + (target_col - neighbor_col) ** 2)
+                    #direct_distance_2 = self.grid[target_row][target_col].euclidean_distance(neighbor)
+                    #print (direct_distance_2, direct_distance)
 
-                    # If the new distance is shorter, update and enqueue the neighbor
-                    if new_distance < distance_map[neighbor_row][neighbor_col]:
-                        distance_map[neighbor_row][neighbor_col] = new_distance
-                        heapq.heappush(queue, (new_distance, neighbor_row, neighbor_col))
+                    # If the calculated distance is shorter, update and enqueue the neighbor
+                    if direct_distance < distance_map[neighbor_row][neighbor_col]:
+                        distance_map[neighbor_row][neighbor_col] = direct_distance
+                        heapq.heappush(queue, (direct_distance, neighbor_row, neighbor_col))
 
-            return distance_map
+        return distance_map
 
     #Helper Methode für Flood Fill, returned Distance map
     def flood_fill(self, target_row, target_col, target_state):
