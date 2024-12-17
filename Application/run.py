@@ -5,7 +5,7 @@ import numpy as np
 from Grid import Grid, Visualization
 from tests import room_square, ChickenTest, RiMEA9, RiMEA4
 
-grid = room_square()
+grid = RiMEA9(1)
 visualization = Visualization(grid)
 
 agent_count_list = []
@@ -16,6 +16,7 @@ timesteps = 10
 for i in range(timesteps):
     grid.update(target_list=grid.target_cells, timestep=i)
     visualization.plot_grid_state(i)
+    #grid.plot_grid_state(i)
     plt.pause(0.01)
 
     agent_count = len(grid.agents)

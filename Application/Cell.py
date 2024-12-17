@@ -332,7 +332,7 @@ class Agent(Cell):
                 print(f"Agent at ({self.row}, {self.col}) has arrived at the target.")
         elif grid.movement_method=="floodfill":
             distance_map = grid.flood_fill_distance_maps.get(target_key)
-            print(distance_map)
+            #print(distance_map)
             neighbors = self.get_neighbors(grid, radius=1)
             valid_neighbors = [
                 cell for layer in neighbors.values()

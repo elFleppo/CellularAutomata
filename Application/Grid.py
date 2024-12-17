@@ -33,11 +33,11 @@ class Grid:
 
         # Aufbau von Spawn, Zielen und Hindernissen
         for row, col in spawn_cells:
-            print(row, col)
+            #print(row, col)
             self.grid[row][col] = SpawnCell(row=row, col=col, cell_size=cell_size)
         if obstacle_cells is not None:
             for row, col in obstacle_cells:
-                print(obstacle_cells)
+                #print(obstacle_cells)
                 self.grid[row][col] = ObstacleCell(row=row, col=col, cell_size=cell_size)
         for row, col in target_cells:
             self.grid[row][col] = TargetCell(row=row, col=col, cell_size=cell_size)
@@ -104,6 +104,7 @@ class Grid:
         """Place a spawn cell at a specific position on the grid"""
         #row, col = self.meter_to_rowcol(x, y)
         self.grid[row][col] = Cell(row=row, col=col, cell_size=self.cell_size)
+
     def place_target(self, row, col):
         """Place a target cell at a specific position on the grid"""
        # row, col = self.meter_to_rowcol(x, y)
@@ -252,8 +253,10 @@ class Grid:
 
     #Update funktion: Wir müssen nur die Agenten bewegen und die Spawns für den nächsten Zeitschritt durchführen
     def update(self, target_list, timestep):
-
-        self.update_distance_maps()
+        
+        if timestep%4 == 0:
+            self.update_distance_maps()
+        
         #Bewege Agenten
         for agent in self.agents:
             if agent.arrived == True:
