@@ -100,9 +100,9 @@ class Grid:
         self.grid[row][col] = SpawnCell(row=row, col=col, cell_size=self.cell_size)
         self.spawn_cells.append((row, col))
 
-    def place_empty_cell(self, x,y):
+    def place_empty_cell(self, row,col):
         """Place a spawn cell at a specific position on the grid"""
-        row, col = self.meter_to_rowcol(x, y)
+        #row, col = self.meter_to_rowcol(x, y)
         self.grid[row][col] = Cell(row=row, col=col, cell_size=self.cell_size)
 
 
@@ -313,6 +313,42 @@ class Grid:
 
         # Add a title and labels
         plt.title(title)
+        plt.xlabel("Columns")
+        plt.ylabel("Rows")
+        plt.show()
+
+    def plot_grid_state(grid, timestep):
+        #Plot Ausgabe für klarere Visualisierung, momentan noch über States für Farbwahl: Evtl besser mit cell.color?
+        # Convert grid to a DataFrame for easy visualization
+        data = [[cell.state for cell in row] for row in grid.grid]
+        # Define a custom color map for the cell states
+        custom_colors = {
+            0: 'white',  # Empty cells
+            1: 'yellow',  # Border cells
+            2: 'green',  # Spawn cells
+            3: 'red',  # Target cells
+            4: 'gray',  # Obstacles
+            47: 'blue'  # Agents
+        }
+
+        # Create a colormap with `matplotlib.colors`
+        cmap = mcolors.ListedColormap([custom_colors[key] for key in sorted(custom_colors.keys())])
+        bounds = list(sorted(custom_colors.keys())) + [max(custom_colors.keys()) + 1]  # Add bounds for each state
+        norm = mcolors.BoundaryNorm(bounds, cmap.N)
+
+        # Plot with Seaborn
+        plt.figure(figsize=(8, 6))
+        sns.heatmap(
+            data,
+            cmap=cmap,
+            norm=norm,
+            linewidths=0.5,
+            linecolor='black',  # Gridlines for better clarity
+            cbar=False,  # Disable default color bar
+            xticklabels=False,  # Remove x-axis labels
+            yticklabels=False  # Remove y-axis labels
+        )
+        plt.title(f"Grid State at Timestep {timestep}")
         plt.xlabel("Columns")
         plt.ylabel("Rows")
         plt.show()
