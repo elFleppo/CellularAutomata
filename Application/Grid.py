@@ -94,9 +94,9 @@ class Grid:
                 if r == 0 or r == self.rows - 1 or c == 0 or c == self.cols - 1:
                     self.grid[r][c] = BorderCell(cell_size=self.cell_size)
     #Die Untenstehenden methoden erlauben eine Interaktion mit dem Grid ausserhalb der initialisierung
-    def place_spawn_cell(self, x,y):
+    def place_spawn_cell(self, row,col):
         """Place a spawn cell at a specific position on the grid"""
-        row, col = self.meter_to_rowcol(x, y)
+        #row, col = self.meter_to_rowcol(x, y)
         self.grid[row][col] = SpawnCell(row=row, col=col, cell_size=self.cell_size)
         self.spawn_cells.append((row, col))
 
@@ -104,28 +104,26 @@ class Grid:
         """Place a spawn cell at a specific position on the grid"""
         #row, col = self.meter_to_rowcol(x, y)
         self.grid[row][col] = Cell(row=row, col=col, cell_size=self.cell_size)
-
-
-    def place_target(self, x, y):
+    def place_target(self, row, col):
         """Place a target cell at a specific position on the grid"""
-        row, col = self.meter_to_rowcol(x, y)
+       # row, col = self.meter_to_rowcol(x, y)
         self.grid[row][col] = TargetCell(row=row, col=col, cell_size=self.cell_size)
         self.target_cells.append((row, col))
 
-    def place_agent(self, x,y):
+    def place_agent(self, row,col):
         """Place an agent at a specific position on the grid"""
-        row, col = self.meter_to_rowcol(x, y)
+        #row, col = self.meter_to_rowcol(x, y)
         agent = Agent(row, col, cell_size=self.cell_size)
         if isinstance(self.grid[row][col], Cell) and not isinstance(self.grid[row][col], TargetCell):
             self.grid[row][col] = agent
             self.agents.append(agent)
 
-    def place_obstacle(self, x,y):
-        row, col = self.meter_to_rowcol(x, y)
+    def place_obstacle(self, row,col):
+       # row, col = self.meter_to_rowcol(x, y)
         self.grid[row][col] = ObstacleCell(row=row, col=col, cell_size=self.cell_size)
 
-    def is_cell_occupied(self,x,y):
-        row, col = self.meter_to_rowcol(x, y)
+    def is_cell_occupied(self,row,col):
+       # row, col = self.meter_to_rowcol(x, y)
         cell = self.grid[row][col]
         return isinstance(cell, Agent)
 
