@@ -63,7 +63,7 @@ class Cell:
     @log_decorator
     def euclidean_distance_to(self, other):
        #Euklidische Distanz zwischen Zwei Zellen
-        return math.sqrt(((self.row - other.row) ** 2 + (self.col - other.col) ** 2) *self.cell_size)
+        return math.sqrt((self.row - other.row) ** 2  + (self.col - other.col) ** 2) *self.cell_size
 
 
     #Jedes Feld hat einen Potentialwert zu der naheliegendsten Target Zelle
@@ -122,7 +122,7 @@ class SpawnCell(Cell):
         valid_neighbors = [
             cell for layer in neighbors.values()
             for cell in layer
-            if not grid.is_cell_occupied(cell.row, cell.col)
+            if not grid.is_cell_occupied(cell.row, cell.col) and cell.is_passable()
         ]
 
         random.shuffle(valid_neighbors)
@@ -302,7 +302,7 @@ class Agent(Cell):
             valid_neighbors = [
                 cell for layer in neighbors.values()
                 for cell in layer
-                if not isinstance(cell, ObstacleCell) and not grid.is_cell_occupied(cell.row, cell.col) and not isinstance(cell, TargetCell)
+                if not isinstance(cell, ObstacleCell) and not grid.is_cell_occupied(cell.row, cell.col) and not isinstance(cell, TargetCell) and cell.is_passable()
             ]
 
             # Include the agent's current position as an option

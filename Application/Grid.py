@@ -48,6 +48,39 @@ class Grid:
             for row in self.grid:
                 logfile.write(" ".join(str(cell) for cell in row) + "\n")
             logfile.write("\n")  # Add a newline for clarity
+
+    def select_area_by_coordinates(self, start_x, start_y, end_x, end_y):
+        """
+        Selects a rectangular area of cells based on real-world coordinates (meters).
+        Converts coordinates to grid indices and returns the cells in the selected area.
+
+        Parameters:
+            start_x (float): Starting x-coordinate (meters).
+            start_y (float): Starting y-coordinate (meters).
+            end_x (float): Ending x-coordinate (meters).
+            end_y (float): Ending y-coordinate (meters).
+
+        Returns:
+            List[Cell]: A list of Cell objects within the selected area.
+        """
+        # Convert coordinates to grid indices using clamp
+        start_row = clamp(int(start_y / self.cell_size), 0, self.rows - 1)
+        start_col = clamp(int(start_x / self.cell_size), 0, self.cols - 1)
+        end_row = clamp(int(end_y / self.cell_size), 0, self.rows - 1)
+        end_col = clamp(int(end_x / self.cell_size), 0, self.cols - 1)
+
+        # Ensure start indices are less than or equal to end indices
+        if start_row > end_row or start_col > end_col:
+            raise ValueError("Start coordinates must be less than or equal to end coordinates.")
+
+        # Collect the cells in the selected area
+        selected_cells = [
+            self.grid[row][col]
+            for row in range(start_row, end_row + 1)
+            for col in range(start_col, end_col + 1)
+        ]
+
+        return selected_cells
     #Plaziere Wand um Feld
     def place_border(self):
         """Place a border around the grid"""
@@ -122,31 +155,23 @@ class Grid:
             current_cell = grid.grid[current_row][current_col]
             neighbors = current_cell.get_neighbors(grid, radius=1)
 
-            # Flatten the dictionary of neighbors into a single list of cells
-            neighbor_cells = [
-                neighbor
-                for layer in neighbors.values()  # Iterate over neighbor layers (distance 1)
-                for neighbor in layer
-            ]
+            for layer in neighbors.values():
+                for neighbor in layer:
+                    neighbor_row, neighbor_col = neighbor.row, neighbor.col
 
-            # Explore each neighbor
-            for neighbor in neighbor_cells:
-                neighbor_row, neighbor_col = neighbor.row, neighbor.col
+                    # Skip impassable cells
+                    if not neighbor.is_passable():
+                        continue
 
-                # Skip if the neighbor is an obstacle
-                if isinstance(neighbor, ObstacleCell):
-                    continue
+                    # Calculate the new distance to this neighbor
+                    new_distance = current_distance + current_cell.euclidean_distance_to(neighbor)
 
-                # Calculate the distance to this neighbor
-                new_distance = round(current_distance + current_cell.euclidean_distance_to(neighbor), 4)
-                print(f"Current: {current_distance}, New: {new_distance}, Neighbor: ({neighbor.row}, {neighbor.col})")
+                    # If the new distance is shorter, update and enqueue the neighbor
+                    if new_distance < distance_map[neighbor_row][neighbor_col]:
+                        distance_map[neighbor_row][neighbor_col] = new_distance
+                        heapq.heappush(queue, (new_distance, neighbor_row, neighbor_col))
 
-                # Update the distance map and queue if we've found a shorter path
-                if new_distance < distance_map[neighbor_row][neighbor_col]:
-                    distance_map[neighbor_row][neighbor_col] = new_distance
-                    heapq.heappush(queue, (new_distance, neighbor_row, neighbor_col))
-
-        return distance_map
+            return distance_map
 
     #Helper Methode für Flood Fill, returned Distance map
     def flood_fill(self, target_row, target_col, target_state):
