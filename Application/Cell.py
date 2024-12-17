@@ -63,7 +63,7 @@ class Cell:
     @log_decorator
     def euclidean_distance_to(self, other):
        #Euklidische Distanz zwischen Zwei Zellen
-        return math.sqrt((self.row - other.row) ** 2 + (self.col - other.col) ** 2)*self.cell_size
+        return math.sqrt(((self.row - other.row) ** 2 + (self.col - other.col) ** 2) *self.cell_size)
 
 
     #Jedes Feld hat einen Potentialwert zu der naheliegendsten Target Zelle

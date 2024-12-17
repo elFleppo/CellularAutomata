@@ -58,35 +58,35 @@ class Grid:
     #Die Untenstehenden methoden erlauben eine Interaktion mit dem Grid ausserhalb der initialisierung
     def place_spawn_cell(self, x,y):
         """Place a spawn cell at a specific position on the grid"""
-        row = clamp(int(x / self.cell_size), 0, self.rows - 1)
-        col = clamp(int(y / self.cell_size), 0, self.cols - 1)
+        row = clamp(int(y/ self.cell_size), 0, self.rows - 1)
+        col = clamp(int(x / self.cell_size), 0, self.cols - 1)
         self.grid[row][col] = SpawnCell(row=row, col=col, cell_size=self.cell_size)
         self.spawn_cells.append((row, col))
 
     def place_target(self, x, y):
         """Place a target cell at a specific position on the grid"""
-        row = clamp(int(x / self.cell_size), 0, self.rows - 1)
-        col = clamp(int(y / self.cell_size), 0, self.cols - 1)
+        row = clamp(int(y/ self.cell_size), 0, self.rows - 1)
+        col = clamp(int(x / self.cell_size), 0, self.cols - 1)
         self.grid[row][col] = TargetCell(row=row, col=col, cell_size=self.cell_size)
         self.target_cells.append((row, col))
 
     def place_agent(self, x,y):
         """Place an agent at a specific position on the grid"""
-        row = clamp(int(x / self.cell_size), 0, self.rows - 1)
-        col = clamp(int(y / self.cell_size), 0, self.cols - 1)
+        row = clamp(int(y/ self.cell_size), 0, self.rows - 1)
+        col = clamp(int(x / self.cell_size), 0, self.cols - 1)
         agent = Agent(row, col, cell_size=self.cell_size)
         if isinstance(self.grid[row][col], Cell) and not isinstance(self.grid[row][col], TargetCell):
             self.grid[row][col] = agent
             self.agents.append(agent)
 
     def place_obstacle(self, x,y):
-        row = clamp(int(x / self.cell_size), 0, self.rows - 1)
-        col = clamp(int(y / self.cell_size), 0, self.cols - 1)
+        row = clamp(int(y/ self.cell_size), 0, self.rows - 1)
+        col = clamp(int(x / self.cell_size), 0, self.cols - 1)
         self.grid[row][col] = ObstacleCell(row=row, col=col, cell_size=self.cell_size)
 
     def is_cell_occupied(self,x,y):
-        row = clamp(int(x / self.cell_size), 0, self.rows - 1)
-        col = clamp(int(y / self.cell_size), 0, self.cols - 1)
+        row = clamp(int(y/ self.cell_size), 0, self.rows - 1)
+        col = clamp(int(x / self.cell_size), 0, self.cols - 1)
         cell = self.grid[row][col]
         return isinstance(cell, Agent)
 
@@ -138,7 +138,8 @@ class Grid:
                     continue
 
                 # Calculate the distance to this neighbor
-                new_distance = current_distance + grid.grid[current_row][current_col].cell_size
+                new_distance = round(current_distance + current_cell.euclidean_distance_to(neighbor), 4)
+                print(f"Current: {current_distance}, New: {new_distance}, Neighbor: ({neighbor.row}, {neighbor.col})")
 
                 # Update the distance map and queue if we've found a shorter path
                 if new_distance < distance_map[neighbor_row][neighbor_col]:
