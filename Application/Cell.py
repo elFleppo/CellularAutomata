@@ -73,6 +73,12 @@ class Cell:
        #Euklidische Distanz zwischen Zwei Zellen
         return math.sqrt((self.row - other.row) ** 2  + (self.col - other.col) ** 2) *self.cell_size
 
+    def manhattan_difference_to(self, other_cell):
+        """Calculate the height and length difference between this cell and another cell."""
+        height_diff = abs(self.row - other_cell.row)
+        length_diff = abs(self.col - other_cell.col)
+        return height_diff, length_diff
+
 
     #Jedes Feld hat einen Potentialwert zu der naheliegendsten Target Zelle
 
@@ -218,7 +224,7 @@ class Agent(Cell):
         return cells
         
 
-    @log_decorator
+  #  @log_decorator
     def social_force(self, grid):
         print("entering social force")
         neighbors = self.get_neighbors(grid, radius=2)  # Get neighbors within the radius
@@ -253,19 +259,26 @@ class Agent(Cell):
                 penalty += penalty_contribution
         print(f"Social force penalty for {self.__hash__()} is {penalty}")
         return penalty
+    @log_decorator
 
-    def repulsive_force(width, height):
+    def repulsive_force(self, width, height):
         repulsive_force = -height + math.exp(1 / (2/width)**2 -1)
         return  repulsive_force
+    @log_decorator
     def social_penalty(self, grid):
+        total_penalty = 0
         neighbors = self.get_neighbors(grid, radius=2)
         for distance, cells in neighbors.items():
             for cell in cells:
                 if isinstance(cell, Agent):
+                    height, width = self.manhattan_difference_to(cell)
+                    print(height, width)
+                    penalty_term = self.repulsive_force(width, height)
+                    total_penalty = total_penalty+penalty_term
+        return total_penalty
 
 
-
-    @log_decorator
+   # @log_decorator
     def increase_movement_range(self):
         #Methode wird aufgerufen wenn Ziel nicht in einem Zeitschritt erreicht werden kann -->
         self.movement_range = self.velocity + self.movement_range

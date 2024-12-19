@@ -305,14 +305,32 @@ class Grid:
             distance_map (List[List[float]]): The 2D distance map to plot.
             title (str): Title for the heatmap.
         """
+        import numpy as np
+        import matplotlib.pyplot as plt
+        import seaborn as sns
+
         # Convert distance map to a numpy array for easier handling
         distance_array = np.array(distance_map)
 
-        # Create a heatmap using seaborn
-        plt.figure(figsize=(8, 6))
-        sns.heatmap(distance_array, annot=False, cmap="YlGnBu", cbar=True, square=True, linewidths=0.5)
+        # Determine color scale limits for better visualization
+        finite_values = distance_array[np.isfinite(distance_array)]  # Exclude inf values
+        vmin = finite_values.min() if len(finite_values) > 0 else 0
+        vmax = finite_values.max() if len(finite_values) > 0 else 1
 
-        # Add a title and labels
+        # Create a heatmap using seaborn
+        plt.figure(figsize=(10, 8))
+        sns.heatmap(
+            distance_array,
+            annot=False,  # No annotations inside the cells
+            cmap="coolwarm",  # Color map for gradient
+            cbar=True,  # Display color bar
+            square=True,  # Ensure square cells
+            linewidths=0,  # Remove lines between cells
+            vmin=vmin,  # Set minimum value for color scale
+            vmax=vmax  # Set maximum value for color scale
+        )
+
+        # Add title and labels
         plt.title(title)
         plt.xlabel("Columns")
         plt.ylabel("Rows")

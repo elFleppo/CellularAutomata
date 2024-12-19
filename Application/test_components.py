@@ -254,5 +254,31 @@ class TestDistanceMaps(unittest.TestCase):
         grid.plot_distance_map(distance_map)
 
 
+class TestAgentSocialPenalty(unittest.TestCase):
+    def setUp(self):
+        self.grid = Grid(
+            length=5,
+            height=5,
+            cell_size=1,
+            spawn_cells=[],
+            target_cells=[],
+            obstacle_cells=[]
+        )
+        self.agent = Agent(2, 2, cell_size=1)
+        self.grid.grid[2][2] = self.agent
+
+    def test_social_penalty(self):
+        # Place other agents around the main agent
+        self.grid.grid[1][1] = Agent(1, 1, cell_size=1)
+        self.grid.grid[1][3] = Agent(1, 3, cell_size=1)
+        self.grid.grid[3][1] = Agent(3, 1, cell_size=1)
+        self.grid.grid[3][3] = Agent(3, 3, cell_size=1)
+
+        # Calculate the social penalty
+        penalty = self.agent.social_penalty(self.grid)
+
+        # Verify the penalty is calculated correctly
+        self.assertLess(penalty, 0, "Penalty should be smaller than 0 when there are neighboring agents.")
+
 if __name__ == '__main__':
     unittest.main()
