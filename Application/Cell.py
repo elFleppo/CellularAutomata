@@ -254,6 +254,16 @@ class Agent(Cell):
         print(f"Social force penalty for {self.__hash__()} is {penalty}")
         return penalty
 
+    def repulsive_force(width, height):
+        repulsive_force = -height + math.exp(1 / (2/width)**2 -1)
+        return  repulsive_force
+    def social_penalty(self, grid):
+        neighbors = self.get_neighbors(grid, radius=2)
+        for distance, cells in neighbors.items():
+            for cell in cells:
+                if isinstance(cell, Agent):
+
+
 
     @log_decorator
     def increase_movement_range(self):
