@@ -69,10 +69,9 @@ class Grid:
             List[Cell]: A list of Cell objects within the selected area.
         """
         # Convert coordinates to grid indices using clamp
-        start_row = clamp(int(start_y / self.cell_size), 0, self.rows - 1)
-        start_col = clamp(int(start_x / self.cell_size), 0, self.cols - 1)
-        end_row = clamp(int(end_y / self.cell_size), 0, self.rows - 1)
-        end_col = clamp(int(end_x / self.cell_size), 0, self.cols - 1)
+        start_row, start_col = self.meter_to_rowcol(start_x, start_y)
+        end_row, end_col = self.meter_to_rowcol(end_x, end_y)
+
 
         # Ensure start indices are less than or equal to end indices
         if start_row > end_row or start_col > end_col:
@@ -261,6 +260,7 @@ class Grid:
         for agent in self.agents:
             if agent.arrived == True:
                 self.agents.remove(agent)
+
             #print(agent)
             if self.movement_method == "floodfill":
                 agent.movement_towards_target(self)

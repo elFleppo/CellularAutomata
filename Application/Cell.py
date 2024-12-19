@@ -60,6 +60,14 @@ class Cell:
             neighbors[r] = layer_neighbors  # Store the current layer of neighbors
 
         return neighbors
+
+    def valid_neighbors(self, neighbors):
+        valid_neighbors = [
+            cell for layer in neighbors.values()
+            for cell in layer
+            if cell.is_passable()
+        ]
+        return valid_neighbors
     @log_decorator
     def euclidean_distance_to(self, other):
        #Euklidische Distanz zwischen Zwei Zellen
@@ -118,13 +126,7 @@ class SpawnCell(Cell):
 
 
     def spawn_agents(self, grid, max_agents):
-        neighbors = self.get_neighbors(grid, radius=1)
-        valid_neighbors = [
-            cell for layer in neighbors.values()
-            for cell in layer
-            if not grid.is_cell_occupied(cell.row, cell.col) and cell.is_passable()
-        ]
-
+        valid_neighbors = self.valid_neighbors(self.get_neighbors(grid, radius=1))
         random.shuffle(valid_neighbors)
         chance = random.randrange(0,1)
         agents_to_spawn = min(max_agents, len(valid_neighbors))
@@ -161,23 +163,7 @@ class Agent(Cell):
         self.id = self.__hash__()
         self.route = []
         self.movement_range = self.velocity
- #Momentan nicht in Verwendung da wir Ziele als Liste führen und nicht immer als Grid Search finden müssen
- #   def find_nearest_target(self, grid):
- #       """Find the nearest TargetCell on the grid to this agent's current position."""
- #       min_distance = float('inf')
- #       nearest_target = None
- #
- #       for target_row in range(grid.rows):
- #           for target_col in range(grid.cols):
- #               cell = grid.grid[target_row][target_col]
- #               if isinstance(cell, TargetCell):
- #                   # Calculate Euclidean distance using self.row and self.col
- #                   distance = math.sqrt((target_row - self.row) ** 2 + (target_col - self.col) ** 2)
- #                   if distance < min_distance:
- #                       min_distance = distance
- #                       nearest_target = (target_row, target_col)
- #
- #       return nearest_target  # Returns (target_row, target_col) or None if no TargetCell is found
+
     def log_state(self, timestep, log_file="logs/agent_states.log"):
         """Log the agent's state to a file."""
 
@@ -298,12 +284,12 @@ class Agent(Cell):
             distance_map = grid.dijkstra_distance_maps.get(target_key)
 
             # Find the best move
-            neighbors = self.get_neighbors(grid, radius=1)
-            valid_neighbors = [
-                cell for layer in neighbors.values()
-                for cell in layer
-                if not isinstance(cell, ObstacleCell) and not grid.is_cell_occupied(cell.row, cell.col) and not isinstance(cell, TargetCell) and cell.is_passable()
-            ]
+            valid_neighbors = self.valid_neighbors(self.get_neighbors(grid, radius=1))
+          # valid_neighbors = [
+          #     cell for layer in neighbors.values()
+          #     for cell in layer
+          #     if not isinstance(cell, ObstacleCell) and not grid.is_cell_occupied(cell.row, cell.col) and not isinstance(cell, TargetCell) and cell.is_passable()
+          # ]
 
             # Include the agent's current position as an option
             valid_neighbors.append(self)
@@ -325,7 +311,7 @@ class Agent(Cell):
                 self.row, self.col = best_move.row, best_move.col
 
             # Mark as arrived if adjacent to the target
-            if smallest_distance == grid.cell_size:
+            if smallest_distance == 0:
                 self.arrived = True
                 grid.agents.remove(self)
                 grid.grid[self.row][self.col] = Cell(self.row, self.col, cell_size=self.cell_size)
@@ -333,12 +319,12 @@ class Agent(Cell):
         elif grid.movement_method=="floodfill":
             distance_map = grid.flood_fill_distance_maps.get(target_key)
             #print(distance_map)
-            neighbors = self.get_neighbors(grid, radius=1)
-            valid_neighbors = [
-                cell for layer in neighbors.values()
-                for cell in layer
-                if not isinstance(cell, ObstacleCell) and not isinstance(cell, TargetCell) and not grid.is_cell_occupied(cell.row, cell.col)
-            ]
+            valid_neighbors = self.valid_neighbors(self.get_neighbors(grid, radius=1))
+          # valid_neighbors = [
+          #     cell for layer in neighbors.values()
+          #     for cell in layer
+          #     if grid.grid[cell.row][cell.col].is_passable()
+          # ]
 
             # Include the agent's current position as an option
             valid_neighbors.append(self)

@@ -57,6 +57,7 @@ class TestAgentBehavior(unittest.TestCase):
         # Update bewirkt das er sich Ziel Nähert
         for timestep in range(10):
             self.grid.update(self.grid.target_cells, timestep=timestep)
+            #print(self.grid.agents)
 
         # Verifiziere Löschung
         self.assertNotIn(agent, self.grid.agents, "Agent was not removed after arrival.")
