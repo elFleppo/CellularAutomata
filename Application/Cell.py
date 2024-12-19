@@ -63,7 +63,7 @@ class Cell:
     @log_decorator
     def euclidean_distance_to(self, other):
        #Euklidische Distanz zwischen Zwei Zellen
-        return math.sqrt((self.row - other.row) ** 2 + (self.col - other.col) ** 2)*self.cell_size
+        return math.sqrt((self.row - other.row) ** 2  + (self.col - other.col) ** 2) *self.cell_size
 
 
     #Jedes Feld hat einen Potentialwert zu der naheliegendsten Target Zelle
@@ -122,18 +122,19 @@ class SpawnCell(Cell):
         valid_neighbors = [
             cell for layer in neighbors.values()
             for cell in layer
-            if not grid.is_cell_occupied(cell.row, cell.col)
+            if not grid.is_cell_occupied(cell.row, cell.col) and cell.is_passable()
         ]
 
         random.shuffle(valid_neighbors)
-
+        chance = random.randrange(0,1)
         agents_to_spawn = min(max_agents, len(valid_neighbors))
-        for _ in range(agents_to_spawn):
-            cell = valid_neighbors.pop(0)
-            row, col = cell.row, cell.col
-            agent = Agent(row, col, cell_size=self.cell_size)
-            grid.grid[row][col] = agent
-            grid.agents.append(agent)
+        if chance < 0.8:
+            for _ in range(agents_to_spawn):
+                cell = valid_neighbors.pop(0)
+                row, col = cell.row, cell.col
+                agent = Agent(row, col, cell_size=self.cell_size)
+                grid.grid[row][col] = agent
+                grid.agents.append(agent)
 
     def is_passable(self):
         return False  #Agenten können nicht Spawnzellen laufen
@@ -277,53 +278,99 @@ class Agent(Cell):
 
     #Bewegungslogik
     # sure this method does make sense here from a architectural point of view?
-    def move_toward_highest_potential(self, grid, target_list):
+    def movement_towards_target(self,  grid):
 
+        """
+                Use precomputed distance maps to move toward the target.
+                Supports flood-fill or Dijkstra-based maps.
+                """
         if self.arrived:
             return
 
-        # Ziel auswählen --> Ziel auswahl muss pro Zelle stattfinden. Aber die Distance map könnten wir wahrscheinlich wo anders setzen um Rechenzeit zu sparen / Redundanz zu verhindern
-        target = self.find_target(target_list)
+        # Determine the target and select the appropriate distance map
+        target = self.find_target(grid.target_cells)
         if not target:
-            return  # No target available
+            return
 
-        # Compute distance map from the target
-        distance_map = grid.compute_distance_map(target)
+        target_key = (target[0], target[1])  # Coordinates of the target
 
-        # Moore nachbarn die nicht besetzt oder Hindernis sind.
-        neighbors = self.get_neighbors(grid, radius=1)
-        valid_neighbors = [
-            cell for layer in neighbors.values()
-            for cell in layer
-            if not isinstance(cell, ObstacleCell) and not grid.is_cell_occupied(cell.row, cell.col)
-        ]
+        if grid.movement_method=="dijkstra":
+            distance_map = grid.dijkstra_distance_maps.get(target_key)
 
-        # Include the agent's current position as an option
-        valid_neighbors.append(self)
+            # Find the best move
+            neighbors = self.get_neighbors(grid, radius=1)
+            valid_neighbors = [
+                cell for layer in neighbors.values()
+                for cell in layer
+                if not isinstance(cell, ObstacleCell) and not grid.is_cell_occupied(cell.row, cell.col) and not isinstance(cell, TargetCell) and cell.is_passable()
+            ]
 
-        # Suche besten Nachbar aus basierend auf Distance map
-        best_move = self
-        smallest_distance = distance_map[self.row][self.col]
+            # Include the agent's current position as an option
+            valid_neighbors.append(self)
 
-        for neighbor in valid_neighbors:
-            distance = distance_map[neighbor.row][neighbor.col]
-            if distance < smallest_distance:
-                smallest_distance = distance
-                best_move = neighbor
+            # Determine the neighbor with the smallest distance to the target
+            best_move = self
+            smallest_distance = distance_map[self.row][self.col]
 
-        # Bewegung
-        if best_move != self:
-            grid.grid[self.row][self.col] = Cell(self.row, self.col, cell_size=self.cell_size)  # Clear current position
-            grid.grid[best_move.row][best_move.col] = self  # Move agent
-            self.row, self.col = best_move.row, best_move.col
+            for neighbor in valid_neighbors:
+                distance = distance_map[neighbor.row][neighbor.col]
+                if distance < smallest_distance:
+                    smallest_distance = distance
+                    best_move = neighbor
 
-        # Agent ist angekommen und wird entsprechend entfernt
-        if smallest_distance == 1:
-            self.arrived = True
-            grid.agents.remove(self)  # Remove the agent from active list
-            grid.grid[self.row][self.col] = Cell(self.row, self.col, cell_size=self.cell_size)
-            print(f"Agent at ({self.row}, {self.col}) is adjacent to the target and has arrived.")
+            # Move to the best neighbor
+            if best_move != self:
+                grid.grid[self.row][self.col] = Cell(self.row, self.col,cell_size=self.cell_size)  # Clear current position
+                grid.grid[best_move.row][best_move.col] = self  # Update agent position
+                self.row, self.col = best_move.row, best_move.col
 
+            # Mark as arrived if adjacent to the target
+            if smallest_distance == grid.cell_size:
+                self.arrived = True
+                grid.agents.remove(self)
+                grid.grid[self.row][self.col] = Cell(self.row, self.col, cell_size=self.cell_size)
+                print(f"Agent at ({self.row}, {self.col}) has arrived at the target.")
+        elif grid.movement_method=="floodfill":
+            distance_map = grid.flood_fill_distance_maps.get(target_key)
+            #print(distance_map)
+            neighbors = self.get_neighbors(grid, radius=1)
+            valid_neighbors = [
+                cell for layer in neighbors.values()
+                for cell in layer
+                if not isinstance(cell, ObstacleCell) and not isinstance(cell, TargetCell) and not grid.is_cell_occupied(cell.row, cell.col)
+            ]
+
+            # Include the agent's current position as an option
+            valid_neighbors.append(self)
+
+            # Determine the neighbor with the smallest distance to the target
+            best_move = self
+            smallest_distance = distance_map[self.row][self.col]
+
+
+
+            for neighbor in valid_neighbors:
+                neighbor_distance = distance_map[neighbor.row][neighbor.col]
+                if neighbor_distance < smallest_distance:
+                    smallest_distance = neighbor_distance
+                    best_move = neighbor
+
+            # Move to the best neighbor
+            if best_move != self:
+                # Clear current position
+                grid.grid[self.row][self.col] = Cell(self.row, self.col, cell_size=self.cell_size)
+                # Update agent position
+                grid.grid[best_move.row][best_move.col] = self
+                self.row, self.col = best_move.row, best_move.col
+
+            # Check if the agent has reached the target
+            if smallest_distance == 0:  # Reached the target
+                self.arrived = True
+                grid.agents.remove(self)
+                grid.grid[self.row][self.col] = Cell(self.row, self.col, cell_size=self.cell_size)
+                print(f"Agent at ({self.row}, {self.col}) has arrived at the target.")
+        if not distance_map:
+            return  # No distance map available
 
 
 
