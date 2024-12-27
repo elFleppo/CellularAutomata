@@ -4,7 +4,27 @@ import matplotlib.pyplot as plt
 import numpy as np 
 from Grid import Grid, Visualization
 from tests import room_square, ChickenTest, RiMEA9, RiMEA4
+def plot_fundamental_diagram(densities, speeds, flows):
+    """
+    Plot density vs. speed and flow for ROI-based analysis.
+    """
+    import matplotlib.pyplot as plt
 
+    fig, ax1 = plt.subplots()
+
+    ax1.set_xlabel("Density (agents/m²)")
+    ax1.set_ylabel("Speed (m/s)", color="blue")
+    ax1.plot(densities, speeds, label="Speed", color="blue")
+    ax1.tick_params(axis="y", labelcolor="blue")
+
+    ax2 = ax1.twinx()  # instantiate a second y-axis that shares the same x-axis
+    ax2.set_ylabel("Flow (agents/s)", color="red")
+    ax2.plot(densities, flows, label="Flow", color="red")
+    ax2.tick_params(axis="y", labelcolor="red")
+
+    fig.tight_layout()  # ensure everything fits without overlap
+    plt.title("Fundamental Diagram at Exit")
+    plt.show()
 grid = RiMEA9(2, "dijkstra")
 visualization = Visualization(grid)
 
@@ -12,14 +32,20 @@ agent_count_list = []
 average_distance_list = [] 
 average_speed_list = [] 
 density_list = []
+densities = []
+speeds = []
+flows = []
 timesteps = 10000
 grid.update_distance_maps()
-for i in range(timesteps):
+for i in range(20):
     grid.update(target_list=grid.target_cells, timestep=i)
     #visualization.plot_grid_state(i)
     grid.plot_grid_state(i)
     plt.pause(0.01)
-
+    density, speed, flow = grid.calculate_density_speed_flow_in_rectangular_roi(10, 8, 12, 8)
+    densities.append(density)
+    speeds.append(speed)
+    flows.append(flow)
     agent_count = len(grid.agents)
     agent_count_list.append(agent_count)
 
@@ -50,7 +76,7 @@ for i in range(timesteps):
         average_distance_list.append(total_distance_to_target / len(grid.agents))
     else:
         average_distance_list.append(np.nan)  
-
+plot_fundamental_diagram(densities, speeds, flows)
 plt.figure(figsize=(10,5)) 
 
 plt.subplot(1, 4, 1)

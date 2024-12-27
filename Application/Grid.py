@@ -31,6 +31,9 @@ class Grid:
         self.obstacle_cells = obstacle_cells
         self.agents = []  # Liste mit allen Agenten die sich auf dem Feld befinden
         self.movement_method = movement_method
+        self.density_data = []
+        self.speed_data = []
+        self.flow_data = []
 
         # Aufbau von Spawn, Zielen und Hindernissen
         for row, col in spawn_cells:
@@ -86,6 +89,19 @@ class Grid:
         ]
 
         return selected_cells
+
+    def get_agents_in_rectangular_roi(self, start_x, start_y, end_x, end_y):
+        """
+        Get all agents within a rectangular ROI defined by real-world coordinates.
+        Parameters:
+            start_x, start_y (float): Bottom-left corner of the rectangle in meters.
+            end_x, end_y (float): Top-right corner of the rectangle in meters.
+        Returns:
+            List[Agent]: List of agents within the ROI.
+        """
+        selected_cells = self.select_area_by_coordinates(start_x, start_y, end_x, end_y)
+        agents_in_roi = [cell for cell in selected_cells if isinstance(cell, Agent)]
+        return agents_in_roi
     #Plaziere Wand um Feld
     def place_border(self):
         """Place a border around the grid"""
@@ -269,7 +285,10 @@ class Grid:
                 agent.movement_towards_target(self)  # Pass the grid instance
 
             agent.log_state(timestep)
-
+        densities, speeds, flows = self.calculate_density_speed_flow()
+        self.density_data.append(densities)
+        self.speed_data.append(speeds)
+        self.flow_data.append(flows)
         #Spawne Agenten (
         for row, col in self.spawn_cells:
             cell = self.grid[row][col]
@@ -377,6 +396,35 @@ class Grid:
         plt.ylabel("Rows")
         plt.show()
 
+    def calculate_density_speed_flow(self):
+        """
+        Calculate density, speed, and flow for each timestep.
+        Density: Agents per unit area.
+        Speed: Average speed of agents.
+        Flow: Number of agents crossing a reference line.
+        """
+        densities = []
+        speeds = []
+        flows = []
+
+        # Define a grid area to calculate density and a reference line for flow
+        area = self.rows * self.cols
+        reference_line = self.rows // 2  # Example: Middle row of the grid
+
+        # Calculate density (number of agents / area)
+        density = len(self.agents) / area
+        densities.append(density)
+
+        # Calculate speed (average agent velocity)
+        avg_speed = np.mean([agent.velocity for agent in self.agents])
+        speeds.append(avg_speed)
+
+        # Calculate flow (agents crossing the reference line)
+        flow = sum(1 for agent in self.agents if agent.row == reference_line)
+        flows.append(flow)
+
+        return densities, speeds, flows
+
     def plot_grid_state(grid, timestep):
         #Plot Ausgabe für klarere Visualisierung, momentan noch über States für Farbwahl: Evtl besser mit cell.color?
         # Convert grid to a DataFrame for easy visualization
@@ -413,6 +461,59 @@ class Grid:
         plt.ylabel("Rows")
         plt.show()
 
+    def calculate_density_speed_flow_in_rectangular_roi(self, start_x, start_y, end_x, end_y):
+        """
+        Calculate density, speed, and flow in a rectangular ROI.
+        Parameters:
+            start_x, start_y (float): Bottom-left corner of the rectangle in meters.
+            end_x, end_y (float): Top-right corner of the rectangle in meters.
+        Returns:
+            Tuple[float, float, int]: Density (agents/m²), average speed (m/s), flow (agents/s).
+        """
+        agents_in_roi = self.get_agents_in_rectangular_roi(start_x, start_y, end_x, end_y)
+
+        # Calculate the area of the rectangular ROI in m²
+        width = abs(end_x - start_x)
+        height = abs(end_y - start_y)
+        area_m2 = width * height
+
+        # Density: Number of agents per unit area
+        density = len(agents_in_roi) / area_m2
+
+        # Speed: Average velocity of agents in the ROI
+        avg_speed = np.mean([agent.velocity for agent in agents_in_roi]) if agents_in_roi else 0
+
+        # Flow: Count agents exiting the rectangle
+        # Example: If the bottom edge is the exit boundary
+        flow = sum(1 for agent in agents_in_roi if agent.row == self.rows - 1)
+
+        return density, avg_speed, flow
+
+    def plot_fundamental_diagram(self):
+        """
+        Plot the fundamental diagram with density vs speed and flow.
+        """
+        import matplotlib.pyplot as plt
+
+        densities = self.density_data
+        speeds = self.speed_data
+        flows = self.flow_data
+
+        fig, ax1 = plt.subplots()
+
+        ax1.set_xlabel("Density (agents/unit area)")
+        ax1.set_ylabel("Speed (units/time)", color="blue")
+        ax1.plot(densities, speeds, label="Speed", color="blue")
+        ax1.tick_params(axis="y", labelcolor="blue")
+
+        ax2 = ax1.twinx()  # instantiate a second y-axis that shares the same x-axis
+        ax2.set_ylabel("Flow (agents/unit time)", color="red")
+        ax2.plot(densities, flows, label="Flow", color="red")
+        ax2.tick_params(axis="y", labelcolor="red")
+
+        fig.tight_layout()  # ensure everything fits without overlap
+        plt.title("Fundamental Diagram")
+        plt.show()
     def create_logfile(self):
         path = f"gridlog-{self.__hash__()}.txt"
         if(os.path.isfile(path)):
