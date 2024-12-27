@@ -1,7 +1,7 @@
 
 import random
 import math
-
+import numpy as np
 from decorator import log_decorator
 
 
@@ -268,16 +268,32 @@ class Agent(Cell):
         return  repulsive_force
    # @log_decorator
     def social_penalty(self, grid):
+        """
+        Calculate the social penalty based on agent proximity and movement preference.
+        Returns a penalty score to discourage crowding.
+        """
         total_penalty = 0
-        neighbors = self.get_neighbors(grid, radius=2)
+        cutoff_distance = 3.0  # Maximum distance in meters to consider for social penalty
+        penalty_decay_factor = 0.5  # Control the steepness of the Gaussian decay
+        stay_penalty = 0.5  # Additional penalty for remaining stationary
+
+        # Get neighbors within a cutoff radius
+        neighbors = self.get_neighbors(grid, radius=int(cutoff_distance / grid.cell_size))
+
         for distance, cells in neighbors.items():
             for cell in cells:
-                if isinstance(cell, Agent):
-                    height, width = self.manhattan_difference_to(cell)
-                    #print(height, width)
-                    penalty_term = self.repulsive_force(width, height)
-                    total_penalty = total_penalty+penalty_term
-                    #print(total_penalty)
+                if isinstance(cell, Agent) and not cell.arrived:  # Only consider other agents
+                    # Compute Euclidean distance in meters
+                    euclidean_distance = self.euclidean_distance_to(cell)
+
+                    if euclidean_distance <= cutoff_distance:
+                        # Apply Gaussian decay penalty
+                        penalty_contribution = math.exp(-(euclidean_distance ** 2) / (2 * penalty_decay_factor ** 2))
+                        total_penalty += penalty_contribution
+
+        # Add penalty for staying in place
+        total_penalty += stay_penalty
+
         return total_penalty
 
 
@@ -287,42 +303,91 @@ class Agent(Cell):
         self.movement_range = self.velocity + self.movement_range
         return self.movement_range
 
-    def movement_decision(self, grid):
+ #   def movement_decision(self, grid):
+ #       """
+ #       Calculate the next move for the agent without modifying the grid.
+ #       Returns the new position (row, col).
+ #       """
+ #       if self.arrived:
+ #           return None
+#
+ #       if self.target is None:
+ #           self.target = self.find_target(grid.target_cells)
+#
+ #       if not self.target:
+ #           return None
+#
+ #       # Select the appropriate distance map
+ #       target_key = (self.target[0], self.target[1])
+ #       distance_map = grid.dijkstra_distance_maps.get(target_key) or grid.flood_fill_distance_maps.get(target_key)
+#
+ #       if not distance_map:
+ #           return None
+#
+ #       # Get valid neighbors and include current position
+ #       valid_neighbors = self.valid_neighbors(self.get_neighbors(grid, radius=1))
+ #       valid_neighbors.append(self)  # Allow staying in place if necessary
+#
+ #       best_move = self
+ #       smallest_cost = float('inf')
+#
+ #       for neighbor in valid_neighbors:
+ #           distance_to_target = distance_map[neighbor.row][neighbor.col]
+ #           social_penalty = neighbor.social_penalty(grid)  # Calculate penalty for the neighbor
+ #           staying_penalty = 2 if neighbor == self else 0  # Encourage moving over staying
+ #           total_cost = distance_to_target + social_penalty + staying_penalty
+#
+ #           if total_cost < smallest_cost:
+ #               smallest_cost = total_cost
+ #               best_move = neighbor
+#
+ #       return (best_move.row, best_move.col) if best_move != self else None
+
+    def movement_decision(self, grid, precomputed_penalties, agent_index):
         """
-        Calculate the next move for the agent without modifying the grid.
-        Returns the new position (row, col).
+        Decide the next move for the agent. Mark as arrived if reaching the target.
+        Returns the new position (row, col) or None if no movement.
         """
         if self.arrived:
             return None
+
         if self.target is None:
+            self.target = self.find_target(grid.target_cells)
 
-            target = self.find_target(grid.target_cells)
-
-        if not target:
+        if not self.target:
             return None
 
-        # Calculate the best move (similar logic as before)
-        target_key = (target[0], target[1])
-        distance_map = grid.dijkstra_distance_maps.get(
-            target_key) if grid.movement_method == "dijkstra" else grid.flood_fill_distance_maps.get(target_key)
+        target_key = (self.target[0], self.target[1])
+        distance_map = grid.dijkstra_distance_maps.get(target_key) or grid.flood_fill_distance_maps.get(target_key)
 
         if not distance_map:
             return None
 
         valid_neighbors = self.valid_neighbors(self.get_neighbors(grid, radius=1))
-        valid_neighbors.append(self)  # Include current position
+        valid_neighbors.append(self)  # Include staying in place as an option
 
         best_move = self
         smallest_cost = float('inf')
+
         for neighbor in valid_neighbors:
             distance_to_target = distance_map[neighbor.row][neighbor.col]
-            social_penalty = self.social_penalty(grid)
+            social_penalty = precomputed_penalties[agent_index]
             staying_penalty = 2 if neighbor == self else 0
+
+            # Reduce weight of social penalties near the target
+            if isinstance(grid.grid[neighbor.row][neighbor.col], TargetCell):
+                social_penalty *= 0.2  # Halve the effect of social penalties near the target
+
             total_cost = distance_to_target + social_penalty + staying_penalty
 
             if total_cost < smallest_cost:
                 smallest_cost = total_cost
                 best_move = neighbor
+
+        # Mark as arrived if moving onto the target
+        if isinstance(grid.grid[best_move.row][best_move.col], TargetCell):
+            self.arrived = True
+            return None
 
         return (best_move.row, best_move.col) if best_move != self else None
     #Bewegungslogik

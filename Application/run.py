@@ -37,15 +37,15 @@ speeds = []
 flows = []
 timesteps = 10000
 grid.update_distance_maps()
-for i in range(20):
+for i in range(800):
     grid.update(target_list=grid.target_cells, timestep=i)
     #visualization.plot_grid_state(i)
     grid.plot_grid_state(i)
     plt.pause(0.01)
-    density, speed, flow = grid.calculate_density_speed_flow_in_rectangular_roi(10, 8, 12, 8)
-    densities.append(density)
-    speeds.append(speed)
-    flows.append(flow)
+   # density, speed, flow = grid.calculate_density_speed_flow_in_rectangular_roi(10, 8, 12, 8)
+    #densities.append(density)
+    #speeds.append(speed)
+    #flows.append(flow)
     agent_count = len(grid.agents)
     agent_count_list.append(agent_count)
 

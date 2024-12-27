@@ -267,36 +267,136 @@ class Grid:
             print(" ".join(str(cell) for cell in row))
         print()
 
+    def compute_social_penalties(grid, cutoff_distance=2.0, penalty_decay_factor=0.5):
+        """
+        Compute social penalties for all agents using a vectorized approach.
+        Parameters:
+            grid (Grid): The simulation grid.
+            cutoff_distance (float): Maximum distance in meters to consider for social penalties.
+            penalty_decay_factor (float): Controls the steepness of the Gaussian decay.
+        Returns:
+            np.ndarray: Social penalties for all agents.
+        """
+        positions = grid.get_agent_positions()  # Shape: (num_agents, 2)
+        # If positions is 1D, reshape it
+        if positions.ndim == 1:
+            positions = positions.reshape(-1, 2)
+        #print(f"Position : None :{positions[:, None, :]}")
+        #print(f"Position  None ::{positions[None, :, :]}")
+        arrived = grid.get_agent_arrival_status()  # Shape: (num_agents,)
+        num_agents = positions.shape[0]
+        #print(num_agents)
+        # Compute pairwise Euclidean distances (broadcasting)
+        deltas = positions[:, None, :] - positions[None, :, :]  # Shape: (num_agents, num_agents, 2)
+        distances = np.linalg.norm(deltas, axis=2)  # Shape: (num_agents, num_agents)
+
+        # Apply cutoff distance (set penalties to 0 beyond this distance)
+        mask = (distances <= cutoff_distance) & ~np.eye(num_agents, dtype=bool)  # Ignore self-distances
+        distances[~mask] = np.inf
+
+        # Apply Gaussian decay penalty
+        penalties = np.exp(-(distances ** 2) / (2 * penalty_decay_factor ** 2))  # Shape: (num_agents, num_agents)
+        penalties[~mask] = 0  # Ensure penalties are 0 for distances > cutoff
+
+        # Sum penalties for each agent
+        total_penalties = penalties.sum(axis=1)  # Shape: (num_agents,)
+
+        # Add a small penalty for staying in place
+        stay_penalty = 0.5
+        total_penalties += stay_penalty
+
+        return total_penalties
+
+
+
+
     #Update funktion: Wir müssen nur die Agenten bewegen und die Spawns für den nächsten Zeitschritt durchführen
+ #  def update(self, target_list, timestep):
+ #
+ #      if timestep == 0:
+ #          self.update_distance_maps()
+ #
+ #      #Bewege Agenten
+ #      for agent in self.agents:
+ #          if agent.arrived == True:
+ #              self.agents.remove(agent)
+ #
+ #          #print(agent)
+ #          if self.movement_method == "floodfill":
+ #              agent.movement_towards_target(self)
+ #          elif self.movement_method == "dijkstra":
+ #              agent.movement_towards_target(self)  # Pass the grid instance
+ #
+ #          agent.log_state(timestep)
+ #      densities, speeds, flows = self.calculate_density_speed_flow()
+ #      self.density_data.append(densities)
+ #      self.speed_data.append(speeds)
+ #      self.flow_data.append(flows)
+ #      #Spawne Agenten (
+ #      for row, col in self.spawn_cells:
+ #          cell = self.grid[row][col]
+ #          if isinstance(cell, SpawnCell):  # Check if the cell at (row, col) is a SpawnCell
+ #              max_agents = 1  # Adjust the number of agents to spawn as needed
+ #              cell.spawn_agents(self, max_agents)
+ #
+ #      self.log_grid_state(timestep)
     def update(self, target_list, timestep):
-        
+        """
+        Update the grid by moving agents and handling arrivals.
+        """
         if timestep == 0:
             self.update_distance_maps()
-        
-        #Bewege Agenten
-        for agent in self.agents:
-            if agent.arrived == True:
-                self.agents.remove(agent)
 
-            #print(agent)
-            if self.movement_method == "floodfill":
-                agent.movement_towards_target(self)
-            elif self.movement_method == "dijkstra":
-                agent.movement_towards_target(self)  # Pass the grid instance
+        # Compute social penalties
+        precomputed_penalties = self.compute_social_penalties()
 
-            agent.log_state(timestep)
-        densities, speeds, flows = self.calculate_density_speed_flow()
-        self.density_data.append(densities)
-        self.speed_data.append(speeds)
-        self.flow_data.append(flows)
-        #Spawne Agenten (
+        # List to track agents to remove
+        agents_to_remove = []
+
+        for i, agent in enumerate(self.agents[:]):  # Iterate over a copy of the agents list
+            if agent.arrived:
+                agents_to_remove.append(agent)
+                continue
+
+            new_position = agent.movement_decision(self, precomputed_penalties, i)
+            if new_position:
+                current_row, current_col = agent.row, agent.col
+                new_row, new_col = new_position
+
+                # Update grid: Move the agent
+                if not isinstance(self.grid[new_row][new_col], TargetCell):
+                    self.grid[new_row][new_col] = agent
+
+                # Restore the current cell
+                self.grid[current_row][current_col] = (
+                    TargetCell(current_row, current_col, self.cell_size)
+                    if (current_row, current_col) in target_list
+                    else Cell(current_row, current_col, self.cell_size)
+                )
+
+                # Update agent position
+                agent.row, agent.col = new_row, new_col
+
+        # Remove agents that have arrived
+        for agent in agents_to_remove:
+            print(f"Removing agent {agent} from ({agent.row}, {agent.col})")
+            self.agents.remove(agent)
+
+            # Restore target cell explicitly
+            if (agent.row, agent.col) in target_list:
+                self.grid[agent.row][agent.col] = TargetCell(agent.row, agent.col, self.cell_size)
+            else:
+                self.grid[agent.row][agent.col] = Cell(agent.row, agent.col, self.cell_size)
+
+        # Spawn new agents
         for row, col in self.spawn_cells:
             cell = self.grid[row][col]
-            if isinstance(cell, SpawnCell):  # Check if the cell at (row, col) is a SpawnCell
-                max_agents = 1  # Adjust the number of agents to spawn as needed
+            if isinstance(cell, SpawnCell):
+                max_agents = 1
                 cell.spawn_agents(self, max_agents)
 
         self.log_grid_state(timestep)
+
     def calculate_movement(self,agent):
         if not agent.arrived:
             # Store the agent's movement decision (current and next position)
@@ -488,6 +588,30 @@ class Grid:
         flow = sum(1 for agent in agents_in_roi if agent.row == self.rows - 1)
 
         return density, avg_speed, flow
+
+    def get_agent_positions(self):
+        """
+        Extract the positions of all agents as a NumPy array.
+        Returns:
+            np.ndarray: Array of shape (num_agents, 2) with rows [row, col].
+        """
+        return np.array([[agent.row, agent.col] for agent in self.agents])
+
+    def get_agent_arrival_status(self):
+        """
+        Extract whether each agent has arrived.
+        Returns:
+            np.ndarray: Boolean array of shape (num_agents,) indicating arrival status.
+        """
+        return np.array([agent.arrived for agent in self.agents])
+
+    def get_agent_velocities(self):
+        """
+        Extract the velocities of all agents.
+        Returns:
+            np.ndarray: Array of shape (num_agents,) with agent velocities.
+        """
+        return np.array([agent.velocity for agent in self.agents])
 
     def plot_fundamental_diagram(self):
         """
