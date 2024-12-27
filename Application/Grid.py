@@ -10,6 +10,7 @@ import heapq
 import matplotlib.colors as mcolors
 import math
 import numpy as np
+from concurrent.futures import ThreadPoolExecutor
 #Helper function for convert
 def clamp(value, min_value, max_value):
     return max(min(value, max_value), min_value)
@@ -253,7 +254,7 @@ class Grid:
     #Update funktion: Wir müssen nur die Agenten bewegen und die Spawns für den nächsten Zeitschritt durchführen
     def update(self, target_list, timestep):
         
-        if timestep%4 == 0:
+        if timestep == 0:
             self.update_distance_maps()
         
         #Bewege Agenten
@@ -277,6 +278,46 @@ class Grid:
                 cell.spawn_agents(self, max_agents)
 
         self.log_grid_state(timestep)
+    def calculate_movement(self,agent):
+        if not agent.arrived:
+            # Store the agent's movement decision (current and next position)
+            return (agent, agent.movement_decision(self))  # New method to compute move
+        return None
+
+    def update_p(self, target_list, timestep):
+        """
+            Parallelized update for agent movements with resolved self references.
+            """
+
+        # Helper function to calculate an agent's movement
+        def calculate_movement(agent, grid):
+            if not agent.arrived:
+                return (agent, agent.movement_decision(grid))
+            return None
+
+        # Step 1: Compute movements in parallel
+        move_decisions = []
+        with ThreadPoolExecutor() as executor:
+            move_decisions = list(
+                filter(
+                    None,
+                    executor.map(lambda agent: calculate_movement(agent, self), self.agents),
+                )
+            )
+
+        # Step 2: Apply movements sequentially to update the grid
+        for agent, new_position in move_decisions:
+            if new_position:
+                # Clear the agent's current position
+                self.grid[agent.row][agent.col] = Cell(agent.row, agent.col, cell_size=self.cell_size)
+                # Move the agent to the new position
+                self.grid[new_position[0]][new_position[1]] = agent
+                agent.row, agent.col = new_position
+
+        # Remove agents that arrived at their targets
+        self.agents = [agent for agent in self.agents if not agent.arrived]
+
+        print(f"Timestep {timestep} complete. Active agents: {len(self.agents)}")
 
     def update_distance_maps(self):
         """

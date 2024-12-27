@@ -169,7 +169,7 @@ class Agent(Cell):
         self.id = self.__hash__()
         self.route = []
         self.movement_range = self.velocity
-
+        self.target = None
     def log_state(self, timestep, log_file="logs/agent_states.log"):
         """Log the agent's state to a file."""
 
@@ -259,12 +259,14 @@ class Agent(Cell):
                 penalty += penalty_contribution
         print(f"Social force penalty for {self.__hash__()} is {penalty}")
         return penalty
-    @log_decorator
+   # @log_decorator
 
     def repulsive_force(self, width, height):
+        if width == 0:  # Ensure no division by zero for width
+            width = 1e-6  # Substitute with a very small number
         repulsive_force = -height + math.exp(1 / (2/width)**2 -1)
         return  repulsive_force
-    @log_decorator
+   # @log_decorator
     def social_penalty(self, grid):
         total_penalty = 0
         neighbors = self.get_neighbors(grid, radius=2)
@@ -272,9 +274,10 @@ class Agent(Cell):
             for cell in cells:
                 if isinstance(cell, Agent):
                     height, width = self.manhattan_difference_to(cell)
-                    print(height, width)
+                    #print(height, width)
                     penalty_term = self.repulsive_force(width, height)
                     total_penalty = total_penalty+penalty_term
+                    #print(total_penalty)
         return total_penalty
 
 
@@ -284,102 +287,120 @@ class Agent(Cell):
         self.movement_range = self.velocity + self.movement_range
         return self.movement_range
 
+    def movement_decision(self, grid):
+        """
+        Calculate the next move for the agent without modifying the grid.
+        Returns the new position (row, col).
+        """
+        if self.arrived:
+            return None
+        if self.target is None:
 
+            target = self.find_target(grid.target_cells)
+
+        if not target:
+            return None
+
+        # Calculate the best move (similar logic as before)
+        target_key = (target[0], target[1])
+        distance_map = grid.dijkstra_distance_maps.get(
+            target_key) if grid.movement_method == "dijkstra" else grid.flood_fill_distance_maps.get(target_key)
+
+        if not distance_map:
+            return None
+
+        valid_neighbors = self.valid_neighbors(self.get_neighbors(grid, radius=1))
+        valid_neighbors.append(self)  # Include current position
+
+        best_move = self
+        smallest_cost = float('inf')
+        for neighbor in valid_neighbors:
+            distance_to_target = distance_map[neighbor.row][neighbor.col]
+            social_penalty = self.social_penalty(grid)
+            staying_penalty = 2 if neighbor == self else 0
+            total_cost = distance_to_target + social_penalty + staying_penalty
+
+            if total_cost < smallest_cost:
+                smallest_cost = total_cost
+                best_move = neighbor
+
+        return (best_move.row, best_move.col) if best_move != self else None
     #Bewegungslogik
     # sure this method does make sense here from a architectural point of view?
-    def movement_towards_target(self,  grid):
-
+    def movement_towards_target(self, grid):
         """
-                Use precomputed distance maps to move toward the target.
-                Supports flood-fill or Dijkstra-based maps.
-                """
+        Decide movement based on target proximity and social penalties.
+        """
         if self.arrived:
             return
 
-        # Determine the target and select the appropriate distance map
+        # Determine the target and select the distance map
         target = self.find_target(grid.target_cells)
         if not target:
             return
 
-        target_key = (target[0], target[1])  # Coordinates of the target
-
-        if grid.movement_method=="dijkstra":
+        target_key = (target[0], target[1])
+        if grid.movement_method == "dijkstra":
             distance_map = grid.dijkstra_distance_maps.get(target_key)
-
-            # Find the best move
-            valid_neighbors = self.valid_neighbors(self.get_neighbors(grid, radius=1))
-          # valid_neighbors = [
-          #     cell for layer in neighbors.values()
-          #     for cell in layer
-          #     if not isinstance(cell, ObstacleCell) and not grid.is_cell_occupied(cell.row, cell.col) and not isinstance(cell, TargetCell) and cell.is_passable()
-          # ]
-
-            # Include the agent's current position as an option
-            valid_neighbors.append(self)
-
-            # Determine the neighbor with the smallest distance to the target
-            best_move = self
-            smallest_distance = distance_map[self.row][self.col]
-
-            for neighbor in valid_neighbors:
-                distance = distance_map[neighbor.row][neighbor.col]
-                if distance < smallest_distance:
-                    smallest_distance = distance
-                    best_move = neighbor
-
-            # Move to the best neighbor
-            if best_move != self:
-                grid.grid[self.row][self.col] = Cell(self.row, self.col,cell_size=self.cell_size)  # Clear current position
-                grid.grid[best_move.row][best_move.col] = self  # Update agent position
-                self.row, self.col = best_move.row, best_move.col
-
-            # Mark as arrived if adjacent to the target
-            if smallest_distance == 0:
-                self.arrived = True
-                grid.agents.remove(self)
-                grid.grid[self.row][self.col] = Cell(self.row, self.col, cell_size=self.cell_size)
-                print(f"Agent at ({self.row}, {self.col}) has arrived at the target.")
-        elif grid.movement_method=="floodfill":
+        elif grid.movement_method == "floodfill":
             distance_map = grid.flood_fill_distance_maps.get(target_key)
-            #print(distance_map)
-            valid_neighbors = self.valid_neighbors(self.get_neighbors(grid, radius=1))
-          # valid_neighbors = [
-          #     cell for layer in neighbors.values()
-          #     for cell in layer
-          #     if grid.grid[cell.row][cell.col].is_passable()
-          # ]
 
-            # Include the agent's current position as an option
-            valid_neighbors.append(self)
-
-            # Determine the neighbor with the smallest distance to the target
-            best_move = self
-            smallest_distance = distance_map[self.row][self.col]
-
-
-
-            for neighbor in valid_neighbors:
-                neighbor_distance = distance_map[neighbor.row][neighbor.col]
-                if neighbor_distance < smallest_distance:
-                    smallest_distance = neighbor_distance
-                    best_move = neighbor
-
-            # Move to the best neighbor
-            if best_move != self:
-                # Clear current position
-                grid.grid[self.row][self.col] = Cell(self.row, self.col, cell_size=self.cell_size)
-                # Update agent position
-                grid.grid[best_move.row][best_move.col] = self
-                self.row, self.col = best_move.row, best_move.col
-
-            # Check if the agent has reached the target
-            if smallest_distance == 0:  # Reached the target
-                self.arrived = True
-                grid.agents.remove(self)
-                grid.grid[self.row][self.col] = Cell(self.row, self.col, cell_size=self.cell_size)
-                print(f"Agent at ({self.row}, {self.col}) has arrived at the target.")
         if not distance_map:
-            return  # No distance map available
+            return  # Ensure the distance map is available
+
+        # Get valid neighbors
+        valid_neighbors = self.valid_neighbors(self.get_neighbors(grid, radius=1))
+        valid_neighbors.append(self)  # Include the current position as a fallback
+        social_penalties = {
+            (neighbor.row, neighbor.col): self.social_penalty(grid)
+            for neighbor in valid_neighbors
+        }
+
+        # Determine the best move
+        best_move = self
+        smallest_cost = float('inf')
+
+        for neighbor in valid_neighbors:
+            # Cache distance to target for efficiency
+            distance_to_target = distance_map[neighbor.row][neighbor.col]
+
+            # Fetch precomputed social penalty
+            penalty = social_penalties[(neighbor.row, neighbor.col)]
+
+            # Add penalty for staying in place
+            staying_penalty = 1.0 if neighbor == self else 0
+
+            total_cost = distance_to_target + penalty + staying_penalty
+
+            if total_cost < smallest_cost:
+                smallest_cost = total_cost
+                best_move = neighbor
+
+        # Check if the best move is onto the target
+        if (best_move.row, best_move.col) == target:
+            self.arrived = True
+            grid.agents.remove(self)
+            # Leave the target cell unchanged
+            grid.grid[self.row][self.col] = Cell(self.row, self.col, cell_size=self.cell_size)
+            return
+
+        # Move to the best neighbor
+        if best_move != self:
+            grid.grid[self.row][self.col] = Cell(self.row, self.col, cell_size=self.cell_size)
+            grid.grid[best_move.row][best_move.col] = self
+            self.row, self.col = best_move.row, best_move.col
+
+        if smallest_cost == 0:  # If reached the target
+            self.arrived = True
+            grid.agents.remove(self)
+            grid.grid[self.row][self.col] = Cell(self.row, self.col, cell_size=self.cell_size)
+
+        # Mark as arrived if at the target
+      #  if smallest_cost == 0:
+      #      self.arrived = True
+      #      grid.agents.remove(self)
+      #      #grid.grid[self.row][self.col] = Cell(self.row, self.col, cell_size=self.cell_size)
+      #      print(f"Agent at ({self.row}, {self.col}) has arrived at the target.")
 
 
 

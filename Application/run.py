@@ -5,7 +5,7 @@ import numpy as np
 from Grid import Grid, Visualization
 from tests import room_square, ChickenTest, RiMEA9, RiMEA4
 
-grid = RiMEA9()
+grid = RiMEA9(2, "dijkstra")
 visualization = Visualization(grid)
 
 agent_count_list = []
@@ -13,11 +13,11 @@ average_distance_list = []
 average_speed_list = [] 
 density_list = []
 timesteps = 10000
-
+grid.update_distance_maps()
 for i in range(timesteps):
     grid.update(target_list=grid.target_cells, timestep=i)
-    visualization.plot_grid_state(i)
-    #grid.plot_grid_state(i)
+    #visualization.plot_grid_state(i)
+    grid.plot_grid_state(i)
     plt.pause(0.01)
 
     agent_count = len(grid.agents)
