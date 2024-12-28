@@ -303,45 +303,7 @@ class Agent(Cell):
         self.movement_range = self.velocity + self.movement_range
         return self.movement_range
 
- #   def movement_decision(self, grid):
- #       """
- #       Calculate the next move for the agent without modifying the grid.
- #       Returns the new position (row, col).
- #       """
- #       if self.arrived:
- #           return None
-#
- #       if self.target is None:
- #           self.target = self.find_target(grid.target_cells)
-#
- #       if not self.target:
- #           return None
-#
- #       # Select the appropriate distance map
- #       target_key = (self.target[0], self.target[1])
- #       distance_map = grid.dijkstra_distance_maps.get(target_key) or grid.flood_fill_distance_maps.get(target_key)
-#
- #       if not distance_map:
- #           return None
-#
- #       # Get valid neighbors and include current position
- #       valid_neighbors = self.valid_neighbors(self.get_neighbors(grid, radius=1))
- #       valid_neighbors.append(self)  # Allow staying in place if necessary
-#
- #       best_move = self
- #       smallest_cost = float('inf')
-#
- #       for neighbor in valid_neighbors:
- #           distance_to_target = distance_map[neighbor.row][neighbor.col]
- #           social_penalty = neighbor.social_penalty(grid)  # Calculate penalty for the neighbor
- #           staying_penalty = 2 if neighbor == self else 0  # Encourage moving over staying
- #           total_cost = distance_to_target + social_penalty + staying_penalty
-#
- #           if total_cost < smallest_cost:
- #               smallest_cost = total_cost
- #               best_move = neighbor
-#
- #       return (best_move.row, best_move.col) if best_move != self else None
+
 
     def movement_decision(self, grid, precomputed_penalties, agent_index):
         """
@@ -376,9 +338,9 @@ class Agent(Cell):
 
             # Reduce weight of social penalties near the target
             if isinstance(grid.grid[neighbor.row][neighbor.col], TargetCell):
-                social_penalty *= 0.2  # Halve the effect of social penalties near the target
-
-            total_cost = distance_to_target + social_penalty + staying_penalty
+                social_penalty *= 0.5  # Halve the effect of social penalties near the target
+            random_bias = random.uniform(-0.5, 0.5)
+            total_cost = distance_to_target + random_bias +social_penalty + staying_penalty
 
             if total_cost < smallest_cost:
                 smallest_cost = total_cost
@@ -460,12 +422,7 @@ class Agent(Cell):
             grid.agents.remove(self)
             grid.grid[self.row][self.col] = Cell(self.row, self.col, cell_size=self.cell_size)
 
-        # Mark as arrived if at the target
-      #  if smallest_cost == 0:
-      #      self.arrived = True
-      #      grid.agents.remove(self)
-      #      #grid.grid[self.row][self.col] = Cell(self.row, self.col, cell_size=self.cell_size)
-      #      print(f"Agent at ({self.row}, {self.col}) has arrived at the target.")
+
 
 
 

@@ -11,6 +11,9 @@ import matplotlib.colors as mcolors
 import math
 import numpy as np
 from concurrent.futures import ThreadPoolExecutor
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
 #Helper function for convert
 def clamp(value, min_value, max_value):
     return max(min(value, max_value), min_value)
@@ -146,14 +149,13 @@ class Grid:
 
 
     #Helper Methode für Djkstra Algorithmus
+
     def compute_distance_map(self, target):
         """
         Compute the shortest path distances from the target to all cells using Dijkstra's algorithm.
-        This version calculates direct Euclidean distance for each cell to avoid cumulative errors.
-
+        This version allows setting distances on Agent cells but prohibits Obstacle cells.
         Parameters:
             target (tuple): Coordinates of the target cell as (row, col).
-
         Returns:
             List[List[float]]: A 2D distance map where each cell contains the shortest distance to the target.
         """
@@ -177,24 +179,25 @@ class Grid:
             if current_distance > distance_map[current_row][current_col]:
                 continue
 
-            # Get the current cell and its neighbors
-            current_cell = self.grid[current_row][current_col]
-            neighbors = current_cell.get_neighbors(self, radius=1)
+            # Get neighbors of the current cell
+            neighbors = self.grid[current_row][current_col].get_neighbors(self, radius=1)
 
             for layer in neighbors.values():
                 for neighbor in layer:
                     neighbor_row, neighbor_col = neighbor.row, neighbor.col
 
-                    # Skip impassable cells
-                    if not neighbor.is_passable():
+                    # Skip obstacle cells
+                    if isinstance(self.grid[neighbor_row][neighbor_col], ObstacleCell):
                         continue
 
-                    # Calculate the direct Euclidean distance from the target
-                    direct_distance = math.sqrt((target_row - neighbor_row) ** 2 + (target_col - neighbor_col) ** 2)
-                    #direct_distance_2 = self.grid[target_row][target_col].euclidean_distance(neighbor)
-                    #print (direct_distance_2, direct_distance)
+                    # Allow distances on Agent cells
+                    if isinstance(self.grid[neighbor_row][neighbor_col], Agent):
+                        pass  # Agents are treated as passable for distance purposes
 
-                    # If the calculated distance is shorter, update and enqueue the neighbor
+                    # Calculate the direct Euclidean distance
+                    direct_distance = math.sqrt((target_row - neighbor_row) ** 2 + (target_col - neighbor_col) ** 2)
+
+                    # Update the neighbor's distance if this path is shorter
                     if direct_distance < distance_map[neighbor_row][neighbor_col]:
                         distance_map[neighbor_row][neighbor_col] = direct_distance
                         heapq.heappush(queue, (direct_distance, neighbor_row, neighbor_col))
@@ -202,17 +205,16 @@ class Grid:
         return distance_map
 
     #Helper Methode für Flood Fill, returned Distance map
+
     def flood_fill(self, target_row, target_col, target_state):
         """
         Perform reverse flood-fill starting from the target (target_row, target_col).
         Computes a distance map where cells closer to the target have smaller values.
         Skips impassable cells (e.g., obstacles, borders).
-
         Parameters:
             target_row (int): Row index of the target.
             target_col (int): Column index of the target.
             target_state (int): State of the target cell.
-
         Returns:
             List[List[float]]: A 2D distance map with Manhattan distances to the target.
         """
@@ -240,23 +242,27 @@ class Grid:
             current_row, current_col = queue.pop(0)
             current_distance = distance_map[current_row][current_col]
 
-            # Get neighbors of the current cell (4 directions: up, down, left, right)
             for dr, dc in directions:
                 neighbor_row, neighbor_col = current_row + dr, current_col + dc
 
-                # Skip if out of bounds
+                # Skip out-of-bounds cells
                 if not (0 <= neighbor_row < self.rows and 0 <= neighbor_col < self.cols):
                     continue
 
                 neighbor_cell = self.grid[neighbor_row][neighbor_col]
 
-                # Skip impassable cells or already visited cells
-                if not neighbor_cell.is_passable() or distance_map[neighbor_row][neighbor_col] != float('inf'):
+                # Skip obstacle cells
+                if isinstance(neighbor_cell, ObstacleCell):
                     continue
 
-                # Update the distance for the neighbor
-                distance_map[neighbor_row][neighbor_col] = current_distance + 1
-                queue.append((neighbor_row, neighbor_col))
+                # Allow distances on Agent cells
+                if isinstance(neighbor_cell, Agent):
+                    pass  # Agents are treated as passable for flood-fill purposes
+
+                # Update the distance for the neighbor if not visited
+                if distance_map[neighbor_row][neighbor_col] == float('inf'):
+                    distance_map[neighbor_row][neighbor_col] = current_distance + 1
+                    queue.append((neighbor_row, neighbor_col))
 
         return distance_map
 
@@ -465,9 +471,7 @@ class Grid:
             distance_map (List[List[float]]): The 2D distance map to plot.
             title (str): Title for the heatmap.
         """
-        import numpy as np
-        import matplotlib.pyplot as plt
-        import seaborn as sns
+
 
         # Convert distance map to a numpy array for easier handling
         distance_array = np.array(distance_map)
@@ -496,34 +500,7 @@ class Grid:
         plt.ylabel("Rows")
         plt.show()
 
-    def calculate_density_speed_flow(self):
-        """
-        Calculate density, speed, and flow for each timestep.
-        Density: Agents per unit area.
-        Speed: Average speed of agents.
-        Flow: Number of agents crossing a reference line.
-        """
-        densities = []
-        speeds = []
-        flows = []
 
-        # Define a grid area to calculate density and a reference line for flow
-        area = self.rows * self.cols
-        reference_line = self.rows // 2  # Example: Middle row of the grid
-
-        # Calculate density (number of agents / area)
-        density = len(self.agents) / area
-        densities.append(density)
-
-        # Calculate speed (average agent velocity)
-        avg_speed = np.mean([agent.velocity for agent in self.agents])
-        speeds.append(avg_speed)
-
-        # Calculate flow (agents crossing the reference line)
-        flow = sum(1 for agent in self.agents if agent.row == reference_line)
-        flows.append(flow)
-
-        return densities, speeds, flows
 
     def plot_grid_state(grid, timestep):
         #Plot Ausgabe für klarere Visualisierung, momentan noch über States für Farbwahl: Evtl besser mit cell.color?
@@ -561,33 +538,7 @@ class Grid:
         plt.ylabel("Rows")
         plt.show()
 
-    def calculate_density_speed_flow_in_rectangular_roi(self, start_x, start_y, end_x, end_y):
-        """
-        Calculate density, speed, and flow in a rectangular ROI.
-        Parameters:
-            start_x, start_y (float): Bottom-left corner of the rectangle in meters.
-            end_x, end_y (float): Top-right corner of the rectangle in meters.
-        Returns:
-            Tuple[float, float, int]: Density (agents/m²), average speed (m/s), flow (agents/s).
-        """
-        agents_in_roi = self.get_agents_in_rectangular_roi(start_x, start_y, end_x, end_y)
 
-        # Calculate the area of the rectangular ROI in m²
-        width = abs(end_x - start_x)
-        height = abs(end_y - start_y)
-        area_m2 = width * height
-
-        # Density: Number of agents per unit area
-        density = len(agents_in_roi) / area_m2
-
-        # Speed: Average velocity of agents in the ROI
-        avg_speed = np.mean([agent.velocity for agent in agents_in_roi]) if agents_in_roi else 0
-
-        # Flow: Count agents exiting the rectangle
-        # Example: If the bottom edge is the exit boundary
-        flow = sum(1 for agent in agents_in_roi if agent.row == self.rows - 1)
-
-        return density, avg_speed, flow
 
     def get_agent_positions(self):
         """
@@ -613,31 +564,111 @@ class Grid:
         """
         return np.array([agent.velocity for agent in self.agents])
 
-    def plot_fundamental_diagram(self):
-        """
-        Plot the fundamental diagram with density vs speed and flow.
-        """
-        import matplotlib.pyplot as plt
+   # def plot_fundamental_diagram(self):
+   #     """
+   #     Plot the fundamental diagram with density vs speed and flow.
+   #     """
+   #
+   #
+   #     densities = self.density_data
+   #     speeds = self.speed_data
+   #     flows = self.flow_data
+   #
+   #     fig, ax1 = plt.subplots()
+   #
+   #     ax1.set_xlabel("Density (agents/unit area)")
+   #     ax1.set_ylabel("Speed (units/time)", color="blue")
+   #     ax1.plot(densities, speeds, label="Speed", color="blue")
+   #     ax1.tick_params(axis="y", labelcolor="blue")
+   #
+   #     ax2 = ax1.twinx()  # instantiate a second y-axis that shares the same x-axis
+   #     ax2.set_ylabel("Flow (agents/unit time)", color="red")
+   #     ax2.plot(densities, flows, label="Flow", color="red")
+   #     ax2.tick_params(axis="y", labelcolor="red")
+   #
+   #     fig.tight_layout()  # ensure everything fits without overlap
+   #     plt.title("Fundamental Diagram")
+   #     plt.show()
 
-        densities = self.density_data
-        speeds = self.speed_data
-        flows = self.flow_data
+    def calculate_fundamental_diagram(self, boundary, timestep, agents_crossed, region_coordinates):
+        """
+        Calculate and plot the Fundamental Diagram.
+
+        Parameters:
+            grid (Grid): The simulation grid.
+            boundary (list): A list of (row, col) tuples representing the boundary.
+            timestep (int): The current simulation timestep.
+            agents_crossed (dict): A dictionary tracking agents that crossed the boundary.
+            region_coordinates (tuple): Coordinates defining the region in front of the boundary as (x1, y1, x2, y2).
+
+        Returns:
+            dict: Contains density, flow, and average speed for the timestep.
+        """
+        # Step 1: Calculate Flow (Agents crossing the boundary in this timestep)
+        current_crossed_agents = []
+        for row, col in boundary:
+            cell = grid.grid[row][col]
+            if isinstance(cell, Agent) and cell.id not in agents_crossed:
+                current_crossed_agents.append(cell)
+                agents_crossed[cell.id] = timestep  # Track the agent's crossing
+
+        flow = len(current_crossed_agents)  # Number of agents crossing the boundary
+
+        # Step 2: Calculate Density (Agents per square meter in the region in front of the boundary)
+        region_in_front = grid.select_area_by_coordinates(*region_coordinates)
+        agent_count = sum(
+            1 for cell in region_in_front if isinstance(cell, Agent)
+        )
+        region_area = len(region_in_front) * (grid.cell_size ** 2)  # Area of region in m^2
+        density = agent_count / region_area if region_area > 0 else 0
+
+        # Step 3: Calculate Average Speed (of agents crossing the boundary)
+        avg_speed = (
+            sum(agent.velocity for agent in current_crossed_agents) / len(current_crossed_agents)
+            if current_crossed_agents else 0
+        )
+
+        # Step 4: Return and log the results
+        results = {
+            "density": density,
+            "flow": flow,
+            "avg_speed": avg_speed,
+        }
+
+        print(f"Timestep {timestep}: Density={density:.2f}, Flow={flow:.2f}, AvgSpeed={avg_speed:.2f}")
+        return results
+
+    def plot_fundamental_diagram(data):
+        """
+        Plot the Fundamental Diagram based on collected data.
+
+        Parameters:
+            data (list): A list of dictionaries containing density, flow, and average speed values.
+        """
+        densities = [entry["density"] for entry in data]
+        flows = [entry["flow"] for entry in data]
+        avg_speeds = [entry["avg_speed"] for entry in data]
 
         fig, ax1 = plt.subplots()
 
-        ax1.set_xlabel("Density (agents/unit area)")
-        ax1.set_ylabel("Speed (units/time)", color="blue")
-        ax1.plot(densities, speeds, label="Speed", color="blue")
-        ax1.tick_params(axis="y", labelcolor="blue")
+        # Plot Flow vs. Density
+        ax1.plot(densities, flows, 'b-o', label="Flow")
+        ax1.set_xlabel("Density (agents/m^2)")
+        ax1.set_ylabel("Flow (agents/s)", color="blue")
+        ax1.tick_params(axis='y', labelcolor="blue")
 
-        ax2 = ax1.twinx()  # instantiate a second y-axis that shares the same x-axis
-        ax2.set_ylabel("Flow (agents/unit time)", color="red")
-        ax2.plot(densities, flows, label="Flow", color="red")
-        ax2.tick_params(axis="y", labelcolor="red")
+        # Plot Avg Speed vs. Density
+        ax2 = ax1.twinx()
+        ax2.plot(densities, avg_speeds, 'r-s', label="Average Speed")
+        ax2.set_ylabel("Average Speed (m/s)", color="red")
+        ax2.tick_params(axis='y', labelcolor="red")
 
-        fig.tight_layout()  # ensure everything fits without overlap
+        fig.tight_layout()
         plt.title("Fundamental Diagram")
         plt.show()
+    
+
+
     def create_logfile(self):
         path = f"gridlog-{self.__hash__()}.txt"
         if(os.path.isfile(path)):
@@ -670,7 +701,7 @@ class Visualization:
 
         self.ax.clear()
         self.ax.imshow(data, cmap=cmap, norm=norm)
-        
+
         
         self.ax.set_title(f"Grid State at Timestep {timestep}")
         self.ax.set_xlabel("Columns")
