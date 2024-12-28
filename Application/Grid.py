@@ -606,20 +606,26 @@ class Grid:
         """
         # Step 1: Calculate Flow (Agents crossing the boundary in this timestep)
         current_crossed_agents = []
-        for row, col in boundary:
-            cell = grid.grid[row][col]
-            if isinstance(cell, Agent) and cell.id not in agents_crossed:
-                current_crossed_agents.append(cell)
-                agents_crossed[cell.id] = timestep  # Track the agent's crossing
+        for cell in boundary:
+            b_cell = self.grid[cell.row][cell.col]
+            if isinstance(b_cell, Agent) and b_cell.id not in agents_crossed:
+                current_crossed_agents.append(b_cell)
+                agents_crossed[b_cell.id] = timestep  # Track the agent's crossing
 
         flow = len(current_crossed_agents)  # Number of agents crossing the boundary
 
         # Step 2: Calculate Density (Agents per square meter in the region in front of the boundary)
-        region_in_front = grid.select_area_by_coordinates(*region_coordinates)
-        agent_count = sum(
-            1 for cell in region_in_front if isinstance(cell, Agent)
-        )
-        region_area = len(region_in_front) * (grid.cell_size ** 2)  # Area of region in m^2
+       # region_in_front = self.select_area_by_coordinates(*region_coordinates)
+        agent_count = 0
+       # agent_count = sum(
+       #     1 for cell in region_coordinates if isinstance(cell, Agent)
+       # )
+        for cell in region_coordinates:
+            if isinstance(self.grid[cell.row][cell.col], Agent):
+                agent_count += 1
+        print(agent_count)
+        region_area = len(region_coordinates) * (self.cell_size ** 2)  # Area of region in m^2
+        print(region_area)
         density = agent_count / region_area if region_area > 0 else 0
 
         # Step 3: Calculate Average Speed (of agents crossing the boundary)
@@ -638,7 +644,7 @@ class Grid:
         print(f"Timestep {timestep}: Density={density:.2f}, Flow={flow:.2f}, AvgSpeed={avg_speed:.2f}")
         return results
 
-    def plot_fundamental_diagram(data):
+    def plot_fundamental_diagram(self, data):
         """
         Plot the Fundamental Diagram based on collected data.
 
