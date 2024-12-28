@@ -10,13 +10,11 @@ room_length = 30
 frameSize = 5
 height = room_height + 2 * frameSize
 length = room_length + 2 * frameSize
-grid, door_cells = RiMEA9(1, "dijkstra")
+grid, door_cells = RiMEA9(2, "dijkstra")
 visualization = Visualization(grid)
-region = []
-for cell in door_cells:
-    row,col = cell.row, cell.col
-    print(row, col)
-    region.append([row, col])
+#region_cord = (frameSize + 4, frameSize+1, frameSize + 5, frameSize+1)
+#region_2_cord = (length - frameSize - 5, height - frameSize, length - frameSize - 4, height - frameSize)
+
 #region = grid.select_area_by_coordinates(frameSize + 4, frameSize, frameSize + 5, frameSize)
 agent_count_list = []
 average_distance_list = [] 
@@ -25,6 +23,8 @@ density_list = []
 densities = []
 speeds = []
 flows = []
+fundamental_data = []
+fundamental_data2 = []
 timesteps = 10000
 grid.update_distance_maps()
 agents_crossed = {}  # Dictionary to track agents crossing the boundary
@@ -37,7 +37,9 @@ for i in range(20):
 
 
     # Calculate density, speed, and flow for the door region
-    fd_results = grid.calculate_fundamental_diagram(grid, door_cells, i, agents_crossed, region)
+    fd_results = grid.calculate_fundamental_diagram(door_cells, i, agents_crossed, door_cells)
+
+    fundamental_data.append(fd_results)
     # Store results for plotting
 
     # Update previous positions for the next timestep
@@ -71,7 +73,9 @@ for i in range(20):
         
         average_distance_list.append(total_distance_to_target / len(grid.agents))
     else:
-        average_distance_list.append(np.nan)  
+        average_distance_list.append(np.nan)
+
+grid.plot_fundamental_diagram(fundamental_data)
 #plot_fundamental_diagram_with_dual_axis(densities, speeds, flows)
 #plt.figure(figsize=(10,5))
 
