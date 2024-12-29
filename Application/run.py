@@ -5,12 +5,9 @@ import numpy as np
 from Grid import Grid, Visualization
 from tests import room_square, ChickenTest, RiMEA9, RiMEA4
 
-room_height = 20
-room_length = 30
-frameSize = 5
-height = room_height + 2 * frameSize
-length = room_length + 2 * frameSize
-grid, door_cells = RiMEA9(1, "dijkstra")
+
+grid, door_cells, roi = RiMEA4( "dijkstra")
+print(roi)
 
 
 visualization = Visualization(grid)
@@ -19,27 +16,22 @@ visualization = Visualization(grid)
 
 #region = grid.select_area_by_coordinates(frameSize + 4, frameSize, frameSize + 5, frameSize)
 agent_count_list = []
-average_distance_list = [] 
-average_speed_list = [] 
-density_list = []
-densities = []
-speeds = []
-flows = []
+
 fundamental_data = []
-fundamental_data2 = []
+
 timesteps = 10000
 grid.update_distance_maps()
 agents_crossed = {}  # Dictionary to track agents crossing the boundary
 for i in range(40):
     grid.update(target_list=grid.target_cells, timestep=i)
     #Select current area inside of Hallway or Room to see how many agents are still inside (for FundamentalDiagram)
-    area = grid.select_area_by_coordinates(frameSize, frameSize, length - frameSize, height - frameSize)
+    area = grid.select_area_by_coordinates(roi[0], roi[1], roi[2], roi[3])
     if i == 0:
         initial_count = len(grid.agents)
         print(f"init{initial_count}")
 
-    #visualization.plot_grid_state(i)
-    grid.plot_grid_state(i)
+    visualization.plot_grid_state(i)
+    #grid.plot_grid_state(i)
     plt.pause(1)
     print(f"len_agentscrossed:{len(agents_crossed)}")
 
@@ -76,10 +68,11 @@ for i in range(40):
     def plot_fundamental_diagram(data):
         """Generate two separate plots from fundamental diagram data."""
 
-        # Extract data
+        # Extract data, remove entries where flow was 0 (no agents crossing yet)
         timesteps = [entry["timestep"] for entry in data if entry["flow"]>0]
         densities = [entry["density"] for entry in data if entry["flow"]>0]
         avg_speeds = [entry["avg_speed"] for entry in data if entry["flow"]>0]
+        flows = [entry["flow"] for entry in data if entry["flow"]>0]
 
         # Plot 1: Density over time
         plt.figure(figsize=(10, 6))
@@ -90,6 +83,27 @@ for i in range(40):
         plt.grid(True)
         plt.legend()
         plt.savefig("Density_over_time")
+        plt.show()
+
+        # Plot 2: Flow over time
+        plt.figure(figsize=(10, 6))
+        plt.plot(timesteps, flows, marker="o", label="Density over time")
+        plt.title("Flow Over Time")
+        plt.xlabel("Timestep")
+        plt.ylabel("Flow (agents/m/s)")
+        plt.grid(True)
+        plt.legend()
+        plt.savefig("Flow_over_time")
+        plt.show()
+        # Plot 3: Flow over time
+        plt.figure(figsize=(10, 6))
+        plt.plot(densities, flows, marker="o", label="Density over time")
+        plt.title("Flows over Densities")
+        plt.xlabel("Densities")
+        plt.ylabel("Flow (agents/m/s)")
+        plt.grid(True)
+        plt.legend()
+        plt.savefig("Flow_over_densities")
         plt.show()
 
         # Plot 2: Average speed relative to density

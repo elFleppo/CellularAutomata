@@ -695,25 +695,48 @@ class Visualization:
         data = [[cell.state for cell in row] for row in self.grid.grid]
 
         custom_colors = {
-            0: 'white',  # Empty cells
-            1: 'yellow',  # Border cells
-            2: 'green',  # Spawn cells
-            3: 'red',  # Target cells
-            4: 'gray',  # Obstacles
-            47: 'blue'  # Agents
+            0: 'white',
+            1: 'yellow',
+            2: 'green',
+            3: 'red',
+            4: 'gray'
         }
 
+        agent_color_map = {0: 'blue', 1: 'red'}  # Map agent groups to colors
+
         cmap = mcolors.ListedColormap([custom_colors[key] for key in sorted(custom_colors.keys())])
-        bounds = list(sorted(custom_colors.keys())) + [max(custom_colors.keys()) + 1]  
+        bounds = list(sorted(custom_colors.keys())) + [max(custom_colors.keys()) + 1]
         norm = mcolors.BoundaryNorm(bounds, cmap.N)
 
-        self.ax.clear()
         self.ax.imshow(data, cmap=cmap, norm=norm)
 
-        
+        # Create a new array to hold the agent colors
+        agent_data = np.zeros((self.grid.rows, self.grid.cols), dtype=int)
+        for row in range(self.grid.rows):
+            for col in range(self.grid.cols):
+                cell = self.grid.grid[row][col]
+                if isinstance(cell, Agent):
+                    # Map the agent's group to a unique value
+                    agent_data[row, col] = 47 + cell.group
+
+        # Update the custom_colors dictionary with the new values for agents
+        custom_colors[47] = 'black'  # Default color for agents (not used here)
+        custom_colors[48] = agent_color_map[0]  # Color for group 0 agents
+        custom_colors[49] = agent_color_map[1]  # Color for group 1 agents
+
+        # Update the bounds and norm to include the new values
+        cmap = mcolors.ListedColormap([custom_colors[key] for key in sorted(custom_colors.keys())])
+        bounds = list(sorted(custom_colors.keys())) + [max(custom_colors.keys()) + 1]
+        norm = mcolors.BoundaryNorm(bounds, cmap.N)
+
+        # Plot the agent data using the updated colormap
+        self.ax.imshow(agent_data, cmap=cmap, norm=norm, alpha=0.8)  # Alpha for layering
+
         self.ax.set_title(f"Grid State at Timestep {timestep}")
         self.ax.set_xlabel("Columns")
         self.ax.set_ylabel("Rows")
+
+        plt.pause(0.1)
 
     def animate_grid_states(self, timesteps):
         def update(frame):

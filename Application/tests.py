@@ -96,28 +96,36 @@ def RiMEA9(Doors, movement_method):
         grid.place_empty_cell(cell.row, cell.col)
 
     potential_agent_cells = grid.select_area_by_coordinates(frameSize + 2, frameSize + 2, length - frameSize - 2, height - frameSize - 2)
+    roi = (frameSize, frameSize, length - frameSize, height - frameSize)
     for cell in potential_agent_cells:
         chance = random.randint(0, 10)
         if chance <= 5 and len(grid.agents) <= 1000:
             grid.place_agent(cell.row, cell.col)
 
-    return grid, door_cells
+    return grid, door_cells, roi
 
 
-# Anpassungen aus den anderen Maps müssen für RiMEA4 noch übernommen werden
-def RiMEA4():
+
+def RiMEA4(movement_method):
     height = 10
-    length = 150
+    length = 100
+    warm_up = 25
+    corridor_length = warm_up + length
+    grid = Grid(height=height, length=corridor_length, spawn_cells=[], obstacle_cells=[], target_cells=[], cell_size=1, movement_method=movement_method)
 
-    obstacle_cells = [(4, 24), (5, 24), (4, 25), (5, 25), (4, 74), (5, 74), (6, 74), (7, 74), (4, 75), (5, 75), (6, 75), (7, 75)] 
-
-    grid = Grid(height=height, length=length, spawn_cells=[], obstacle_cells=[], target_cells=[], cell_size=0.5)
+    # Door_cells sind in diesem Fall eine Zelle vor Ende des Ganges
+    door_cells = grid.select_area_by_coordinates(corridor_length-1, 0, corridor_length-1, height)
+    obstacle_placement = grid.select_area_by_coordinates(24, 4, 25, 5)
+    obstacle_placement += grid.select_area_by_coordinates(74, 4, 75, 7)
 
     for i in range(0, grid.rows-1):
         grid.place_spawn_cell(i, 0)
         grid.place_target(i, grid.cols-1)
 
-    for j in range(0, len(obstacle_cells)-1):
-        grid.place_obstacle(obstacle_cells[j][0], obstacle_cells[j][1])
+    for cell in obstacle_placement:
+        grid.place_obstacle(cell.row, cell.col)
 
-    return grid
+    for cell in door_cells:
+        grid.place_empty_cell(cell.row, cell.col)
+    roi = (0,0,corridor_length,height)
+    return grid, door_cells, roi

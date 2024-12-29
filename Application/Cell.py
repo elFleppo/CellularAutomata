@@ -141,6 +141,7 @@ class SpawnCell(Cell):
                 cell = valid_neighbors.pop(0)
                 row, col = cell.row, cell.col
                 agent = Agent(row, col, cell_size=self.cell_size)
+                agent.group = random.choice([0, 1])  # NEUE ZEILE
                 grid.grid[row][col] = agent
                 grid.agents.append(agent)
 
@@ -170,6 +171,7 @@ class Agent(Cell):
         self.route = []
         self.movement_range = self.velocity
         self.target = None
+        self.group = None
     def log_state(self, timestep, log_file="logs/agent_states.log"):
         """Log the agent's state to a file."""
 
