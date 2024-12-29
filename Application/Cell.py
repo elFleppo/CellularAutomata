@@ -166,12 +166,16 @@ class Agent(Cell):
         super().__init__(state=47, row=row, col=col, cell_size=cell_size) # Set the agent state as before
         self.arrived = False
         #velocity wird später verwendet um die Gehgeschwindigkeit der einzelnen Agenten zu verändern
-        self.velocity = random.uniform(0.75, 1.5)
+        self.velocity = random.uniform(0.5, 1.5)
         self.id = self.__hash__()
         self.route = []
         self.movement_range = self.velocity
         self.target = None
         self.group = None
+        self.original_velocity = self.velocity
+        self.original_movement_range = self.movement_range
+        self.idle = None
+
     def log_state(self, timestep, log_file="logs/agent_states.log"):
         """Log the agent's state to a file."""
 
@@ -300,9 +304,16 @@ class Agent(Cell):
 
 
    # @log_decorator
-    def increase_movement_range(self):
+    def adjust_movement_range(self):
         #Methode wird aufgerufen wenn Ziel nicht in einem Zeitschritt erreicht werden kann -->
-        self.movement_range = self.velocity + self.movement_range
+        if self.idle:
+            self.movement_range = self.velocity + self.movement_range
+            print("MOVEMENT INCREASE")
+        elif not self.idle:
+            #We enter this part when the agent was able to move after being idle(for example stuck in crowd) --> We reset velocity and movement range to original states
+            self.movement_range = self.original_movement_range
+            print("MOVEMENT RESET")
+            self.velocity = self.original_velocity
         return self.movement_range
 
 
@@ -347,6 +358,16 @@ class Agent(Cell):
             if total_cost < smallest_cost:
                 smallest_cost = total_cost
                 best_move = neighbor
+        #Set lowest possible velocity before reducing it any further to 0.40, graceful penalty only
+        if self.velocity >= 0.40:
+            if social_penalty > 0:
+                self.velocity = self.velocity - social_penalty / 3
+                if self.velocity <= 0:
+                    #we dont want negative velocities
+                    self.velocity = abs(self.velocity)
+                self.movement_range = self.velocity
+                #print(f"new velocity for {agent_index} is {self.velocity}")
+
 
         # Mark as arrived if moving onto the target
         if isinstance(grid.grid[best_move.row][best_move.col], TargetCell):
@@ -356,73 +377,127 @@ class Agent(Cell):
         return (best_move.row, best_move.col) if best_move != self else None
     #Bewegungslogik
     # sure this method does make sense here from a architectural point of view?
+#    def movement_towards_target(self, grid):
+#        """
+#        Decide movement based on target proximity and social penalties.
+#        """
+#        if self.arrived:
+#            return
+#
+#        # Determine the target and select the distance map
+#        target = self.find_target(grid.target_cells)
+#        if not target:
+#            return
+#
+#        target_key = (target[0], target[1])
+#        if grid.movement_method == "dijkstra":
+#            distance_map = grid.dijkstra_distance_maps.get(target_key)
+#        elif grid.movement_method == "floodfill":
+#            distance_map = grid.flood_fill_distance_maps.get(target_key)
+#
+#        if not distance_map:
+#            return  # Ensure the distance map is available
+#
+#        # Get valid neighbors
+#        valid_neighbors = self.valid_neighbors(self.get_neighbors(grid, radius=1))
+#        valid_neighbors.append(self)  # Include the current position as a fallback
+#        social_penalties = {
+#            (neighbor.row, neighbor.col): self.social_penalty(grid)
+#            for neighbor in valid_neighbors
+#        }
+#
+#        # Determine the best move
+#        best_move = self
+#        smallest_cost = float('inf')
+#
+#        for neighbor in valid_neighbors:
+#            # Cache distance to target for efficiency
+#            distance_to_target = distance_map[neighbor.row][neighbor.col]
+#
+#            # Fetch precomputed social penalty
+#            penalty = social_penalties[(neighbor.row, neighbor.col)]
+#
+#            # Add penalty for staying in place
+#            staying_penalty = 1.0 if neighbor == self else 0
+#
+#            total_cost = distance_to_target + penalty + staying_penalty
+#
+#            if total_cost < smallest_cost:
+#                smallest_cost = total_cost
+#                best_move = neighbor
+#
+#        # Check if the best move is onto the target
+#        if (best_move.row, best_move.col) == target:
+#            self.arrived = True
+#            grid.agents.remove(self)
+#            # Leave the target cell unchanged
+#            grid.grid[self.row][self.col] = Cell(self.row, self.col, cell_size=self.cell_size)
+#            return
+#
+#        # Move to the best neighbor
+#        #print(f"agent id{self.id} has {self.euclidean_distance_to(best_move)} distance to best_move and {self.movement_range} movement_range")
+#        if best_move != self and self.euclidean_distance_to(best_move)<=self.movement_range:
+#            grid.grid[self.row][self.col] = Cell(self.row, self.col, cell_size=self.cell_size)
+#            grid.grid[best_move.row][best_move.col] = self
+#            self.row, self.col = best_move.row, best_move.col
+#            self.idle = False
+#            self.adjust_movement_range()
+#        elif best_move != self and self.euclidean_distance_to(best_move)>self.movement_range:
+#            self.idle = True
+#            print(f"agent{self.id} is idle: {self.idle}")
+#            self.adjust_movement_range()
+#            print(f"increase of movement range to {self.movement_range}")
+#        if smallest_cost == 0:  # If reached the target
+#            self.arrived = True
+#            grid.agents.remove(self)
+#            grid.grid[self.row][self.col] = Cell(self.row, self.col, cell_size=self.cell_size)
     def movement_towards_target(self, grid):
-        """
-        Decide movement based on target proximity and social penalties.
-        """
         if self.arrived:
             return
 
-        # Determine the target and select the distance map
         target = self.find_target(grid.target_cells)
-        if not target:
+        #print(f"Agent {self.id} moving towards target {target}")
+
+        valid_neighbors = self.valid_neighbors(self.get_neighbors(grid, radius=1))
+        if not valid_neighbors:
+            #print(f"Agent {self.id} has no valid neighbors and is stuck.")
             return
 
-        target_key = (target[0], target[1])
-        if grid.movement_method == "dijkstra":
-            distance_map = grid.dijkstra_distance_maps.get(target_key)
-        elif grid.movement_method == "floodfill":
-            distance_map = grid.flood_fill_distance_maps.get(target_key)
-
-        if not distance_map:
-            return  # Ensure the distance map is available
-
-        # Get valid neighbors
-        valid_neighbors = self.valid_neighbors(self.get_neighbors(grid, radius=1))
-        valid_neighbors.append(self)  # Include the current position as a fallback
-        social_penalties = {
-            (neighbor.row, neighbor.col): self.social_penalty(grid)
-            for neighbor in valid_neighbors
-        }
-
-        # Determine the best move
         best_move = self
         smallest_cost = float('inf')
 
         for neighbor in valid_neighbors:
-            # Cache distance to target for efficiency
-            distance_to_target = distance_map[neighbor.row][neighbor.col]
+            if grid.movement_method =="dijkstra":
+                distance_to_target = grid.dijkstra_distance_maps[target][neighbor.row][neighbor.col]
+            elif grid.movement_method == "floodfill":
+                distance_to_target = grid.flood_fill_distance_maps[target][neighbor.row][neighbor.col]
 
-            # Fetch precomputed social penalty
-            penalty = social_penalties[(neighbor.row, neighbor.col)]
-
-            # Add penalty for staying in place
-            staying_penalty = 1.0 if neighbor == self else 0
-
-            total_cost = distance_to_target + penalty + staying_penalty
-
+            total_cost = distance_to_target  # Add penalties if needed
             if total_cost < smallest_cost:
                 smallest_cost = total_cost
                 best_move = neighbor
-
-        # Check if the best move is onto the target
-        if (best_move.row, best_move.col) == target:
+        if isinstance(grid.grid[best_move.row][best_move.col], TargetCell):
             self.arrived = True
             grid.agents.remove(self)
             # Leave the target cell unchanged
             grid.grid[self.row][self.col] = Cell(self.row, self.col, cell_size=self.cell_size)
             return
 
-        # Move to the best neighbor
-        if best_move != self:
+        if best_move != self and self.euclidean_distance_to(best_move) <= self.movement_range:
             grid.grid[self.row][self.col] = Cell(self.row, self.col, cell_size=self.cell_size)
             grid.grid[best_move.row][best_move.col] = self
             self.row, self.col = best_move.row, best_move.col
+            print(f"Agent {self.id} moved to ({self.row}, {self.col})")
+            self.idle = False
+            self.adjust_movement_range()
 
-        if smallest_cost == 0:  # If reached the target
-            self.arrived = True
-            grid.agents.remove(self)
-            grid.grid[self.row][self.col] = Cell(self.row, self.col, cell_size=self.cell_size)
+        elif best_move != self:
+            self.idle = True
+            self.adjust_movement_range()
+
+
+
+
 
 
 

@@ -147,6 +147,29 @@ class Grid:
        # row, col = self.meter_to_rowcol(x, y)
         cell = self.grid[row][col]
         return isinstance(cell, Agent)
+    def get_agent_positions(self):
+        """
+        Extract the positions of all agents as a NumPy array.
+        Returns:
+            np.ndarray: Array of shape (num_agents, 2) with rows [row, col].
+        """
+        return np.array([[agent.row, agent.col] for agent in self.agents])
+
+    def get_agent_arrival_status(self):
+        """
+        Extract whether each agent has arrived.
+        Returns:
+            np.ndarray: Boolean array of shape (num_agents,) indicating arrival status.
+        """
+        return np.array([agent.arrived for agent in self.agents])
+
+    def get_agent_velocities(self):
+        """
+        Extract the velocities of all agents.
+        Returns:
+            np.ndarray: Array of shape (num_agents,) with agent velocities.
+        """
+        return np.array([agent.velocity for agent in self.agents])
 
 
     #Helper Methode für Djkstra Algorithmus
@@ -365,24 +388,12 @@ class Grid:
                 agents_to_remove.append(agent)
                 continue
 
-            new_position = agent.movement_decision(self, precomputed_penalties, i)
-            if new_position:
-                current_row, current_col = agent.row, agent.col
-                new_row, new_col = new_position
+            # Call the agent's movement logic
+            print(f"Agent {agent.id} moving from ({agent.row}, {agent.col})")
+            agent.movement_towards_target(self)
 
-                # Update grid: Move the agent
-                if not isinstance(self.grid[new_row][new_col], TargetCell):
-                    self.grid[new_row][new_col] = agent
-
-                # Restore the current cell
-                self.grid[current_row][current_col] = (
-                    TargetCell(current_row, current_col, self.cell_size)
-                    if (current_row, current_col) in target_list
-                    else Cell(current_row, current_col, self.cell_size)
-                )
-
-                # Update agent position
-                agent.row, agent.col = new_row, new_col
+            # Debugging
+            print(f"Agent {agent.id} now at ({agent.row}, {agent.col})")
 
         # Remove agents that have arrived
         for agent in agents_to_remove:
@@ -404,46 +415,115 @@ class Grid:
 
         self.log_grid_state(timestep)
 
+#    def update(self, target_list, timestep):
+#        """
+#        Update the grid by moving agents and handling arrivals.
+#        """
+#        if timestep == 0:
+#            self.update_distance_maps()
+#        # Compute social penalties
+#        precomputed_penalties = self.compute_social_penalties()
+#        # List to track agents to remove
+#        agents_to_remove = []
+#        for i, agent in enumerate(self.agents[:]):  # Iterate over a copy of the agents list
+#            if agent.arrived:
+#                agents_to_remove.append(agent)
+#                continue
+#            new_position = agent.movement_decision(self, precomputed_penalties, i)
+#            if new_position:
+#                current_row, current_col = agent.row, agent.col
+#                new_row, new_col = new_position
+#                # Update grid: Move the agent
+#                if not isinstance(self.grid[new_row][new_col], TargetCell):
+#                    self.grid[new_row][new_col] = agent
+#                # Restore the current cell
+#                self.grid[current_row][current_col] = (
+#                    TargetCell(current_row, current_col, self.cell_size)
+#                    if (current_row, current_col) in target_list
+#                    else Cell(current_row, current_col, self.cell_size)
+#                )
+#                # Update agent position
+#                agent.row, agent.col = new_row, new_col
+#        # Remove agents that have arrived
+#        for agent in agents_to_remove:
+#            print(f"Removing agent {agent} from ({agent.row}, {agent.col})")
+#            self.agents.remove(agent)
+#            # Restore target cell explicitly
+#            if (agent.row, agent.col) in target_list:
+#                self.grid[agent.row][agent.col] = TargetCell(agent.row, agent.col, self.cell_size)
+#            else:
+#                self.grid[agent.row][agent.col] = Cell(agent.row, agent.col, self.cell_size)
+#        # Spawn new agents
+#        for row, col in self.spawn_cells:
+#            cell = self.grid[row][col]
+#            if isinstance(cell, SpawnCell):
+#                max_agents = 1
+#                cell.spawn_agents(self, max_agents)
+#        self.log_grid_state(timestep)
+    #def update(self, target_list, timestep):
+#    """
+#    Update the grid by moving agents and handling arrivals.
+#    """
+#    if timestep == 0:
+#        self.update_distance_maps()
+
+#    # Precompute penalties for agents
+#    precomputed_penalties = self.compute_social_penalties()
+
+#    # List to track agents to remove
+#    agents_to_remove = []
+
+#    for agent in self.agents[:]:  # Iterate over a copy of the agents list
+#        if agent.arrived:
+#            agents_to_remove.append(agent)
+#            continue
+
+#        # Use the agent's own movement logic
+#        print(f"moving agent {agent.id}")
+#        agent.movement_towards_target(self)
+
+#    # Remove agents that have arrived
+#    for agent in agents_to_remove:
+#        print(f"Removing agent {agent} from ({agent.row}, {agent.col})")
+#        self.agents.remove(agent)
+
+#        # Restore target cell explicitly
+#        if (agent.row, agent.col) in target_list:
+#            self.grid[agent.row][agent.col] = TargetCell(agent.row, agent.col, self.cell_size)
+#        else:
+#            self.grid[agent.row][agent.col] = Cell(agent.row, agent.col, self.cell_size)
+
+#    # Spawn new agents
+#    for row, col in self.spawn_cells:
+#        cell = self.grid[row][col]
+#        if isinstance(cell, SpawnCell):
+#            max_agents = 1
+#            cell.spawn_agents(self, max_agents)
+
+#    self.log_grid_state(timestep)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     def calculate_movement(self,agent):
         if not agent.arrived:
             # Store the agent's movement decision (current and next position)
             return (agent, agent.movement_decision(self))  # New method to compute move
         return None
 
-    def update_p(self, target_list, timestep):
-        """
-            Parallelized update for agent movements with resolved self references.
-            """
 
-        # Helper function to calculate an agent's movement
-        def calculate_movement(agent, grid):
-            if not agent.arrived:
-                return (agent, agent.movement_decision(grid))
-            return None
-
-        # Step 1: Compute movements in parallel
-        move_decisions = []
-        with ThreadPoolExecutor() as executor:
-            move_decisions = list(
-                filter(
-                    None,
-                    executor.map(lambda agent: calculate_movement(agent, self), self.agents),
-                )
-            )
-
-        # Step 2: Apply movements sequentially to update the grid
-        for agent, new_position in move_decisions:
-            if new_position:
-                # Clear the agent's current position
-                self.grid[agent.row][agent.col] = Cell(agent.row, agent.col, cell_size=self.cell_size)
-                # Move the agent to the new position
-                self.grid[new_position[0]][new_position[1]] = agent
-                agent.row, agent.col = new_position
-
-        # Remove agents that arrived at their targets
-        self.agents = [agent for agent in self.agents if not agent.arrived]
-
-        print(f"Timestep {timestep} complete. Active agents: {len(self.agents)}")
 
     def update_distance_maps(self):
         """
@@ -501,12 +581,10 @@ class Grid:
         plt.ylabel("Rows")
         plt.show()
 
-
-
-    def plot_grid_state(grid, timestep):
-        #Plot Ausgabe für klarere Visualisierung, momentan noch über States für Farbwahl: Evtl besser mit cell.color?
+    def plot_grid_state(self, timestep):
+        # Plot Ausgabe für klarere Visualisierung, momentan noch über States für Farbwahl: Evtl besser mit cell.color?
         # Convert grid to a DataFrame for easy visualization
-        data = [[cell.state for cell in row] for row in grid.grid]
+        data = [[cell.state for cell in row] for row in self.grid]
         # Define a custom color map for the cell states
         custom_colors = {
             0: 'white',  # Empty cells
@@ -541,29 +619,7 @@ class Grid:
 
 
 
-    def get_agent_positions(self):
-        """
-        Extract the positions of all agents as a NumPy array.
-        Returns:
-            np.ndarray: Array of shape (num_agents, 2) with rows [row, col].
-        """
-        return np.array([[agent.row, agent.col] for agent in self.agents])
 
-    def get_agent_arrival_status(self):
-        """
-        Extract whether each agent has arrived.
-        Returns:
-            np.ndarray: Boolean array of shape (num_agents,) indicating arrival status.
-        """
-        return np.array([agent.arrived for agent in self.agents])
-
-    def get_agent_velocities(self):
-        """
-        Extract the velocities of all agents.
-        Returns:
-            np.ndarray: Array of shape (num_agents,) with agent velocities.
-        """
-        return np.array([agent.velocity for agent in self.agents])
 
    # def plot_fundamental_diagram(self):
    #     """

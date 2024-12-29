@@ -6,7 +6,7 @@ from Grid import Grid, Visualization
 from tests import room_square, ChickenTest, RiMEA9, RiMEA4, Experiment
 import matplotlib
 matplotlib.use("Qt5Agg")
-grid, door_cells, roi = RiMEA4("dijkstra")
+grid, door_cells, roi = RiMEA9(2,"dijkstra")
 print(roi)
 
 #exp_grid, roi = Experiment("dijkstra")
@@ -23,8 +23,9 @@ fundamental_data = []
 timesteps = 10000
 grid.update_distance_maps()
 agents_crossed = {}  # Dictionary to track agents crossing the boundary
-for i in range(800):
+for i in range(60):
     grid.update(target_list=grid.target_cells, timestep=i)
+    print("--------------------------------------------------------------------------------------------------")
     #Select current area inside of Hallway or Room to see how many agents are still inside (for FundamentalDiagram)
     area = grid.select_area_by_coordinates(roi[0], roi[1], roi[2], roi[3])
     if i == 0:
