@@ -319,16 +319,17 @@ class Agent(Cell):
    # @log_decorator
     def adjust_movement_range(self):
         #Methode wird aufgerufen wenn Ziel nicht in einem Zeitschritt erreicht werden kann -->
-        print(self.idle)
+        #print(self.idle)
         if self.idle:
-            print(f"Original Range{self._original_movement_range} and Original velocity{self._original_velocity}, adjusted velocity was {self.velocity} and movement was {self.movement_range}")
+            #print(f"Original Range{self._original_movement_range} and Original velocity{self._original_velocity}, adjusted velocity was {self.velocity} and movement was {self.movement_range}")
             self.movement_range += self.velocity
 
             print("MOVEMENT INCREASE")
+            print(f"new range is{self.movement_range}")
         elif not self.idle:
             #We enter this part when the agent was able to move after being idle(for example stuck in crowd) --> We reset velocity and movement range to original states
             self.movement_range = self.original_movement_range
-            print("MOVEMENT RESET")
+            print(f"MOVEMENT RESET: new range is {self.movement_range} and velocity is {self.velocity}")
             self.velocity = self.original_velocity
 
 
@@ -363,26 +364,28 @@ class Agent(Cell):
         for neighbor in valid_neighbors:
             distance_to_target = distance_map[neighbor.row][neighbor.col]
             social_penalty = precomputed_penalties[agent_index]
-            staying_penalty = 2 if neighbor == self else 0
+            staying_penalty = 5 if neighbor == self else 0
 
             # Reduce weight of social penalties near the target
             if isinstance(grid.grid[neighbor.row][neighbor.col], TargetCell):
                 social_penalty *= 0.5  # Halve the effect of social penalties near the target
-            #random_bias = random.uniform(-0.5, 0.5)
-            total_cost = distance_to_target  +social_penalty + staying_penalty
+            random_bias = random.uniform(-0.5, 0.5)
+            total_cost = distance_to_target +random_bias +social_penalty + staying_penalty
 
             if total_cost < smallest_cost:
                 smallest_cost = total_cost
                 best_move = neighbor
         #Set lowest possible velocity before reducing it any further to 0.40, graceful penalty only
+        print(f"Agent{self.id} velocity before penalty is {self.velocity}. Social penalty is {social_penalty}")
         if self.velocity >= 0.40:
             if social_penalty is not None:
-                self.velocity = self.velocity - social_penalty / 3
+                self.velocity = self.velocity - (social_penalty / 2)
                 if self.velocity <= 0:
                     #we dont want negative velocities
                     self.velocity = abs(self.velocity)
                 self.movement_range = self.velocity
-                #print(f"new velocity for {agent_index} is {self.velocity}")
+
+                print(f"new velocity for {agent_index} is {self.velocity}")
 
 
         # Mark as arrived if moving onto the target
@@ -480,23 +483,24 @@ class Agent(Cell):
             return
 
         best_move = self
-        smallest_cost = float('inf')
+
         new_best_move = self.movement_decision(grid,precomputed_penalties, index)
         if new_best_move is None:
+            print(f"Agent {self.id} at position {self.row,self.col} has no best move")
             return
         #print(new_best_move)
-        print(self.euclidean_distance_to(grid.grid[new_best_move[0]][new_best_move[1]]))
+        #print(self.euclidean_distance_to(grid.grid[new_best_move[0]][new_best_move[1]]))
         if new_best_move != self and self.euclidean_distance_to(grid.grid[new_best_move[0]][new_best_move[1]]) <= self.movement_range:
             grid.grid[self.row][self.col] = Cell(self.row, self.col, cell_size=self.cell_size)
             grid.grid[new_best_move[0]][new_best_move[1]] = self
             self.row, self.col = new_best_move[0], new_best_move[1]
-            print(f"Agent {self.id} moved to ({self.row}, {self.col})")
+            #print(f"Agent {self.id} moved to ({self.row}, {self.col})")
             self.idle = False
             self.adjust_movement_range()
 
         elif new_best_move != self:
             self.idle = True
-            print("Range to short, adjusting")
+            print(f"Agent{self.id}: Range {self.movement_range} to short, adjusting. Distance is{self.euclidean_distance_to(grid.grid[new_best_move[0]][new_best_move[1]])}")
             self.adjust_movement_range()
 
 

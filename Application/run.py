@@ -35,17 +35,17 @@ for i in range(60):
     visualization.plot_grid_state(i)
     #grid.plot_grid_state(i)
     plt.pause(1)
-    print(f"len_agentscrossed:{len(agents_crossed)}")
+    #print(f"len_agentscrossed:{len(agents_crossed)}")
 
     # Calculate density, speed, and flow: Set Boundarys to be doorcells (as defined in Rimea), pass current timestep, already_crossed agents and the area for density calculation
     #print(agents_crossed)
 
     fd_results = grid.calculate_fundamental_diagram(door_cells, i, agents_crossed, area)
-    print(type(fd_results))
+    #print(type(fd_results))
     fundamental_data.append(fd_results)
         #print(fundamental_data)
     # Store results for plotting
-    print(type(fundamental_data))
+   # print(type(fundamental_data))
     # Update previous positions for the next timestep
     agent_count = len(grid.agents)
     agent_count_list.append(agent_count)

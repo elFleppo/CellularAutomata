@@ -389,15 +389,15 @@ class Grid:
                 continue
 
             # Call the agent's movement logic
-            print(f"Agent {agent.id} moving from ({agent.row}, {agent.col})")
+            #print(f"Agent {agent.id} moving from ({agent.row}, {agent.col})")
             agent.movement_towards_target(self, precomputed_penalties, i)
 
             # Debugging
-            print(f"Agent {agent.id} now at ({agent.row}, {agent.col})")
+            #print(f"Agent {agent.id} now at ({agent.row}, {agent.col})")
 
         # Remove agents that have arrived
         for agent in agents_to_remove:
-            print(f"Removing agent {agent} from ({agent.row}, {agent.col})")
+            #print(f"Removing agent {agent} from ({agent.row}, {agent.col})")
             self.agents.remove(agent)
 
             # Restore target cell explicitly
