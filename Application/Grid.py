@@ -795,3 +795,55 @@ class Visualization:
 
         ani = animation.FuncAnimation(self.fig, update, frames=timesteps, interval=10)   #FuncAnimation regelt die Synchronisation, in diesem Fall 10 Milisekunden   
         plt.show()
+
+    def plot_fundamental_diagram(self,data):
+        """Generate two separate plots from fundamental diagram data."""
+
+        # Extract data, remove entries where flow was 0 (no agents crossing yet)
+        timesteps = [entry["timestep"] for entry in data if entry["flow"]>0]
+        densities = [entry["density"] for entry in data if entry["flow"]>0]
+        avg_speeds = [entry["avg_speed"] for entry in data if entry["flow"]>0]
+        flows = [entry["flow"] for entry in data if entry["flow"]>0]
+
+        # Plot 1: Density over time
+        plt.figure(figsize=(10, 6))
+        plt.plot(timesteps, densities, marker="o", label="Density over time")
+        plt.title("Density Over Time")
+        plt.xlabel("Timestep")
+        plt.ylabel("Density (agents/m^2)")
+        plt.grid(True)
+        plt.legend()
+        plt.savefig("Density_over_time")
+        plt.show()
+
+        # Plot 2: Flow over time
+        plt.figure(figsize=(10, 6))
+        plt.plot(timesteps, flows, marker="o", label="Density over time")
+        plt.title("Flow Over Time")
+        plt.xlabel("Timestep")
+        plt.ylabel("Flow (agents/m/s)")
+        plt.grid(True)
+        plt.legend()
+        plt.savefig("Flow_over_time")
+        plt.show()
+        # Plot 3: Flow over time
+        plt.figure(figsize=(10, 6))
+        plt.plot(densities, flows, marker="o", label="Density over time")
+        plt.title("Flows over Densities")
+        plt.xlabel("Densities")
+        plt.ylabel("Flow (agents/m/s)")
+        plt.grid(True)
+        plt.legend()
+        plt.savefig("Flow_over_densities")
+        plt.show()
+
+        # Plot 2: Average speed relative to density
+        plt.figure(figsize=(10, 6))
+        plt.plot(densities, avg_speeds, marker="s", label="Avg Speed vs. Density", color="red")
+        plt.title("Average Speed Relative to Density")
+        plt.xlabel("Density (agents/m^2)")
+        plt.ylabel("Average Speed (m/s)")
+        plt.grid(True)
+        plt.legend()
+        plt.savefig("Speed_relative_to_density")
+        plt.show()

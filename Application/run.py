@@ -5,8 +5,11 @@ import numpy as np
 from Grid import Grid, Visualization
 from tests import room_square, ChickenTest, RiMEA9, RiMEA4, Experiment
 import matplotlib
+#This line is needed for the plots to render in Pychamr Sciplot-View
 matplotlib.use("Qt5Agg")
-grid, door_cells, roi = RiMEA9(2,"dijkstra")
+#Using the Maps from tests build a grid. every map returns a grid, door_cells (used as boundary zones for flow measurements) and roi (region used to calculate agent density)
+#grid, door_cells, roi = RiMEA9(2,"dijkstra")
+grid, door_cells, roi = Experiment("dijkstra")
 print(roi)
 
 #exp_grid, roi = Experiment("dijkstra")
@@ -31,21 +34,15 @@ for i in range(60):
     if i == 0:
         initial_count = len(grid.agents)
         print(f"init{initial_count}")
-
     visualization.plot_grid_state(i)
     #grid.plot_grid_state(i)
     plt.pause(1)
     #print(f"len_agentscrossed:{len(agents_crossed)}")
-
     # Calculate density, speed, and flow: Set Boundarys to be doorcells (as defined in Rimea), pass current timestep, already_crossed agents and the area for density calculation
-    #print(agents_crossed)
-
     fd_results = grid.calculate_fundamental_diagram(door_cells, i, agents_crossed, area)
-    #print(type(fd_results))
     fundamental_data.append(fd_results)
-        #print(fundamental_data)
-    # Store results for plotting
-   # print(type(fundamental_data))
+
+
     # Update previous positions for the next timestep
     agent_count = len(grid.agents)
     agent_count_list.append(agent_count)
@@ -54,65 +51,7 @@ for i in range(60):
         break
 
 
-
-
-#Dataprep before plotting
-
-
-#grid.plot_fundamental_diagram(fundamental_data)
-    def plot_fundamental_diagram(data):
-        """Generate two separate plots from fundamental diagram data."""
-
-        # Extract data, remove entries where flow was 0 (no agents crossing yet)
-        timesteps = [entry["timestep"] for entry in data if entry["flow"]>0]
-        densities = [entry["density"] for entry in data if entry["flow"]>0]
-        avg_speeds = [entry["avg_speed"] for entry in data if entry["flow"]>0]
-        flows = [entry["flow"] for entry in data if entry["flow"]>0]
-
-        # Plot 1: Density over time
-        plt.figure(figsize=(10, 6))
-        plt.plot(timesteps, densities, marker="o", label="Density over time")
-        plt.title("Density Over Time")
-        plt.xlabel("Timestep")
-        plt.ylabel("Density (agents/m^2)")
-        plt.grid(True)
-        plt.legend()
-        plt.savefig("Density_over_time")
-        plt.show()
-
-        # Plot 2: Flow over time
-        plt.figure(figsize=(10, 6))
-        plt.plot(timesteps, flows, marker="o", label="Density over time")
-        plt.title("Flow Over Time")
-        plt.xlabel("Timestep")
-        plt.ylabel("Flow (agents/m/s)")
-        plt.grid(True)
-        plt.legend()
-        plt.savefig("Flow_over_time")
-        plt.show()
-        # Plot 3: Flow over time
-        plt.figure(figsize=(10, 6))
-        plt.plot(densities, flows, marker="o", label="Density over time")
-        plt.title("Flows over Densities")
-        plt.xlabel("Densities")
-        plt.ylabel("Flow (agents/m/s)")
-        plt.grid(True)
-        plt.legend()
-        plt.savefig("Flow_over_densities")
-        plt.show()
-
-        # Plot 2: Average speed relative to density
-        plt.figure(figsize=(10, 6))
-        plt.plot(densities, avg_speeds, marker="s", label="Avg Speed vs. Density", color="red")
-        plt.title("Average Speed Relative to Density")
-        plt.xlabel("Density (agents/m^2)")
-        plt.ylabel("Average Speed (m/s)")
-        plt.grid(True)
-        plt.legend()
-        plt.savefig("Speed_relative_to_density")
-        plt.show()
-
-plot = plot_fundamental_diagram(fundamental_data)
+plot = visualization.plot_fundamental_diagram(fundamental_data)
 
 
 
