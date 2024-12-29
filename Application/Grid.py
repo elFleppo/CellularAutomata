@@ -332,8 +332,8 @@ class Grid:
         total_penalties = penalties.sum(axis=1)  # Shape: (num_agents,)
 
         # Add a small penalty for staying in place
-        stay_penalty = 0.5
-        total_penalties += stay_penalty
+        #stay_penalty = 0.5
+        #total_penalties += stay_penalty
 
         return total_penalties
 
@@ -390,7 +390,7 @@ class Grid:
 
             # Call the agent's movement logic
             print(f"Agent {agent.id} moving from ({agent.row}, {agent.col})")
-            agent.movement_towards_target(self)
+            agent.movement_towards_target(self, precomputed_penalties, i)
 
             # Debugging
             print(f"Agent {agent.id} now at ({agent.row}, {agent.col})")

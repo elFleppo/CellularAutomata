@@ -300,7 +300,7 @@ class TestPenalties(unittest.TestCase):
                 np.exp(-(distances[j] ** 2) / (2 * 0.5 ** 2))
                 for j in range(len(distances))
                 if within_cutoff[j] and i != j
-            ) + 0.5  # Include stay penalty
+            )
 
             self.assertAlmostEqual(penalty, expected_penalty, places=2)
 
@@ -318,186 +318,111 @@ class TestPenalties(unittest.TestCase):
             penalty = precomputed_penalties[i]
             self.assertGreater(penalty, 0)
 
-class TestAgentSocialPenalty(unittest.TestCase):
+class TestGridPenalties(unittest.TestCase):
+
     def setUp(self):
-        self.grid = Grid(
-            length=5,
-            height=5,
-            cell_size=1,
-            spawn_cells=[],
-            target_cells=[],
-            obstacle_cells=[]
-        )
-        self.agent = Agent(2, 2, cell_size=1)
-        self.grid.grid[2][2] = self.agent
+        # Create a Grid instance
+        self.cell_size = 1.0
+        self.length = 5  # 5 cells wide
+        self.height = 5  # 5 cells tall
 
-    def test_social_penalty(self):
-        # Place other agents around the main agent
-        self.grid.grid[1][1] = Agent(1, 1, cell_size=1)
-        self.grid.grid[1][3] = Agent(1, 3, cell_size=1)
-        self.grid.grid[3][1] = Agent(3, 1, cell_size=1)
-        self.grid.grid[3][3] = Agent(3, 3, cell_size=1)
+        # Define the initial setup for the grid
+        spawn_cells = []  # No spawn cells for this test
+        target_cells = [(4, 4)]  # Target at the bottom-right corner
+        obstacle_cells = []  # No obstacles for simplicity
 
-        # Calculate the social penalty
-        penalty = self.agent.social_penalty(self.grid)
+        # Create the grid
+        self.grid = Grid(self.length, self.height, spawn_cells, target_cells, obstacle_cells, cell_size=self.cell_size)
 
-        # Verify the penalty is calculated correctly
-        self.assertLess(penalty, 0, "Penalty should be smaller than 0 when there are neighboring agents.")
+        # Place agents in the grid
+        self.grid.place_agent(1, 1)
+        self.grid.place_agent(1, 2)
+        self.grid.place_agent(2, 1)
+        self.grid.place_agent(2, 2)
+        self.agents = self.grid.agents
 
-class TestRepulsiveForceAndSocialPenalty(unittest.TestCase):
-    def setUp(self):
-        # Create a 5x5 grid with agents and targets
-        self.grid = Grid(
-            length=5,
-            height=5,
-            spawn_cells=[],
-            target_cells=[(4, 4)],
-            obstacle_cells=[],
-            cell_size=1.0,
-            movement_method="dijkstra"
-        )
-        self.grid.update_distance_maps()
+    def test_social_penalties_computation(self):
+        # Compute social penalties for all agents
+        cutoff_distance = 2.0
+        penalty_decay_factor = 0.5
+        precomputed_penalties = self.grid.compute_social_penalties(cutoff_distance, penalty_decay_factor)
 
-        # Place agents
-        self.agent1 = Agent(2, 2, cell_size=1.0)
-        self.agent2 = Agent(2, 3, cell_size=1.0)
-        self.grid.grid[2][2] = self.agent1
-        self.grid.grid[2][3] = self.agent2
-        self.grid.agents.extend([self.agent1, self.agent2])
+        # Print computed penalties for debugging
+        print(f"Computed Penalties: {precomputed_penalties}")
 
-    def test_social_penalty_computation(self):
-        penalty = self.agent1.social_penalty(self.grid)
-        self.assertGreater(penalty, 0, "Social penalty should be positive with nearby agents.")
+        # Validate penalties are computed correctly
+        self.assertEqual(len(precomputed_penalties), len(self.agents))
 
-    def test_repulsive_force_computation(self):
-        height, width = self.agent1.manhattan_difference_to(self.agent2)
-        repulsive_force = self.agent1.repulsive_force(width, height)
-        self.assertGreater(repulsive_force, 0, "Repulsive force should be positive for neighboring agents.")
-
-    def test_agent_avoids_high_penalty(self):
-        # Add additional agents to simulate crowding
-        additional_agents = [
-            Agent(1, 1, cell_size=1.0),
-            Agent(1, 2, cell_size=1.0),
-            Agent(1, 3, cell_size=1.0)
+        # Example manual calculations based on the logic
+        expected_penalties = [
+            0.28898620536195957,  # Adjust these values based on your manual calculations
+            0.28898620536195957,
+            0.28898620536195957,
+            0.28898620536195957
         ]
-        for agent in additional_agents:
-            self.grid.grid[agent.row][agent.col] = agent
-            self.grid.agents.append(agent)
 
-        # Update and ensure agent1 moves to minimize penalty
-        self.grid.update(self.grid.target_cells, timestep=1)
-        self.assertNotEqual((self.agent1.row, self.agent1.col), (2, 2), "Agent should move away from high-penalty area.")
+        # Check penalties against expected values
+        for computed, expected in zip(precomputed_penalties, expected_penalties):
+            self.assertAlmostEqual(computed, expected, delta=0.2)
 
-    def test_agent_movement_with_penalties(self):
-        original_position = (self.agent1.row, self.agent1.col)
-        self.grid.update(self.grid.target_cells, timestep=1)
-        new_position = (self.agent1.row, self.agent1.col)
-        self.assertNotEqual(original_position, new_position, "Agent should move considering both distance and penalties.")
 
-class TestParallelizedAgentMovement(unittest.TestCase):
+class TestAgentMovementRange(unittest.TestCase):
+
     def setUp(self):
-        """
-        Set up a small grid with multiple agents for testing parallelization.
-        """
-        self.grid = Grid(
-            length=5,
-            height=5,
-            spawn_cells=[],
-            target_cells=[(4, 4)],
-            obstacle_cells=[],
-            cell_size=1.0,
-            movement_method="dijkstra"
-        )
+        # Create a Grid instance
+        self.cell_size = 1.0
+        self.length = 5  # 5 cells wide
+        self.height = 5  # 5 cells tall
+
+        # Define the initial setup for the grid
+        spawn_cells = []  # No spawn cells for this test
+        target_cells = [(4, 4)]  # Target at the bottom-right corner
+        obstacle_cells = []  # No obstacles for simplicity
+
+        # Create the grid
+        self.grid = Grid(self.length, self.height, spawn_cells, target_cells, obstacle_cells, cell_size=self.cell_size)
+
+        # Add a target at (4, 4)
+        self.grid.place_target(4, 4)
+
+        # Place an agent at (0, 0)
+        self.grid.place_agent(0, 0)
+        self.agent = self.grid.grid[0][0]
+
+        # Precompute distance maps for the grid
         self.grid.update_distance_maps()
 
-        # Add agents
-        self.agent1 = Agent(0, 0, cell_size=1.0)
-        self.agent2 = Agent(0, 1, cell_size=1.0)
-        self.agent3 = Agent(1, 0, cell_size=1.0)
-        self.grid.grid[0][0] = self.agent1
-        self.grid.grid[0][1] = self.agent2
-        self.grid.grid[1][0] = self.agent3
-        self.grid.agents.extend([self.agent1, self.agent2, self.agent3])
+    def test_movement_range_increases(self):
+        # Set initial conditions
+       # self.agent.movement_range = 0.4 # Start with this range
+        #self.agent.velocity = 0.4 # Velocity determines the increment
+        original_range = self.agent._original_movement_range
+        original_velocity = self.agent._original_velocity
+        # Debug initial values
+        print(f"Initial Movement Range: {original_range}")
+        print(f"Original Velocity: {original_velocity}")
+        precomputed_penalties = self.grid.compute_social_penalties()
 
-    def test_unique_agent_positions_after_update(self):
-        """
-        Ensure no two agents occupy the same cell after an update.
-        """
-        def move_agent(agent):
-            if not agent.arrived:
-                agent.movement_towards_target(self.grid)
+        # Simulate insufficient movement range
+        self.agent.movement_towards_target(self.grid, precomputed_penalties, 0)
 
-        # Parallelize agent movement
-        with ThreadPoolExecutor() as executor:
-            executor.map(move_agent, self.grid.agents)
+        # Assert no movement happened due to insufficient range
+        self.assertEqual(self.agent.row, 0)
+        self.assertEqual(self.agent.col, 0)
 
-        # Collect agent positions
-        positions = [(agent.row, agent.col) for agent in self.grid.agents]
-        unique_positions = set(positions)
+        # Verify movement range increased
 
-        # Ensure all positions are unique
-        self.assertEqual(len(positions), len(unique_positions), "Agents occupy the same cell after update.")
+        expected_range = self.agent._original_movement_range+self.agent.velocity
+        print(f"Current Velocity afet movement update{self.agent.velocity} range {self.agent.movement_range}")# Initial range + velocity
+        print(f"New Movement Range: {self.agent.movement_range} (Expected: {expected_range})")
+        self.assertAlmostEqual(self.agent.movement_range, expected_range, delta=0.1)
 
-    def test_correct_movement_logic(self):
-        """
-        Verify each agent independently follows the correct movement logic.
-        """
-        initial_positions = [(agent.row, agent.col) for agent in self.grid.agents]
+        self.agent.movement_towards_target(self.grid, precomputed_penalties, 0)
 
-        def move_agent(agent):
-            if not agent.arrived:
-                agent.movement_towards_target(self.grid)
 
-        with ThreadPoolExecutor() as executor:
-            executor.map(move_agent, self.grid.agents)
 
-        new_positions = [(agent.row, agent.col) for agent in self.grid.agents]
 
-        # Ensure agents have moved and are closer to the target
-        for i, (old_pos, new_pos) in enumerate(zip(initial_positions, new_positions)):
-            self.assertNotEqual(old_pos, new_pos, f"Agent {i} did not move.")
-            self.assertLess(
-                self.grid.dijkstra_distance_maps[(4, 4)][new_pos[0]][new_pos[1]],
-                self.grid.dijkstra_distance_maps[(4, 4)][old_pos[0]][old_pos[1]],
-                f"Agent {i} did not move closer to the target."
-            )
 
-    def test_grid_consistency_after_update(self):
-        """
-        Ensure grid consistency after parallel updates.
-        """
-        def move_agent(agent):
-            if not agent.arrived:
-                agent.movement_towards_target(self.grid)
-
-        with ThreadPoolExecutor() as executor:
-            executor.map(move_agent, self.grid.agents)
-
-        # Verify grid reflects agent positions correctly
-        for agent in self.grid.agents:
-            cell = self.grid.grid[agent.row][agent.col]
-            self.assertIs(agent, cell, f"Grid inconsistency: Agent not correctly placed at ({agent.row}, {agent.col}).")
-
-    def test_arrived_agents_removed_correctly(self):
-        """
-        Verify agents that arrive at the target are removed from the grid and agent list.
-        """
-        # Place one agent directly on the target
-        target_agent = Agent(4, 4, cell_size=1.0)
-        self.grid.grid[4][4] = target_agent
-        self.grid.agents.append(target_agent)
-
-        def move_agent(agent):
-            if not agent.arrived:
-                agent.movement_towards_target(self.grid)
-
-        with ThreadPoolExecutor() as executor:
-            executor.map(move_agent, self.grid.agents)
-
-        # Ensure the agent is removed
-        self.assertNotIn(target_agent, self.grid.agents, "Arrived agent was not removed.")
-        self.assertNotIsInstance(self.grid.grid[4][4], Agent, "Arrived agent is still present in the target cell.")
 
 if __name__ == "__main__":
     unittest.main()

@@ -166,14 +166,15 @@ class Agent(Cell):
         super().__init__(state=47, row=row, col=col, cell_size=cell_size) # Set the agent state as before
         self.arrived = False
         #velocity wird später verwendet um die Gehgeschwindigkeit der einzelnen Agenten zu verändern
-        self.velocity = random.uniform(0.5, 1.5)
+        #self.velocity = random.uniform(0.5, 1.5)
         self.id = self.__hash__()
         self.route = []
-        self.movement_range = self.velocity
         self.target = None
         self.group = None
-        self.original_velocity = self.velocity
-        self.original_movement_range = self.movement_range
+        self._original_velocity = random.uniform(0.5, 1.5)
+        self._original_movement_range = self.original_velocity
+        self.velocity = self._original_velocity
+        self.movement_range = self._original_movement_range
         self.idle = None
 
     def log_state(self, timestep, log_file="logs/agent_states.log"):
@@ -185,7 +186,19 @@ class Agent(Cell):
                 f"State: {self.state}, Arrived: {self.arrived}, Velocity: {self.velocity}\n"
             )
 
+    @property
+    def original_velocity(self):
+        """Access the original velocity."""
+        return self._original_velocity
 
+    @property
+    def original_movement_range(self):
+        """Access the original movement range."""
+        return self._original_movement_range
+    def restore_velocity(self):
+        self.velocity = self._original_velocity
+    def restore_movement_range(self):
+        self.movement_range = self._original_movement_range
 
 
     def is_passable(self):
@@ -306,15 +319,18 @@ class Agent(Cell):
    # @log_decorator
     def adjust_movement_range(self):
         #Methode wird aufgerufen wenn Ziel nicht in einem Zeitschritt erreicht werden kann -->
+        print(self.idle)
         if self.idle:
-            self.movement_range = self.velocity + self.movement_range
+            print(f"Original Range{self._original_movement_range} and Original velocity{self._original_velocity}, adjusted velocity was {self.velocity} and movement was {self.movement_range}")
+            self.movement_range += self.velocity
+
             print("MOVEMENT INCREASE")
         elif not self.idle:
             #We enter this part when the agent was able to move after being idle(for example stuck in crowd) --> We reset velocity and movement range to original states
             self.movement_range = self.original_movement_range
             print("MOVEMENT RESET")
             self.velocity = self.original_velocity
-        return self.movement_range
+
 
 
 
@@ -352,15 +368,15 @@ class Agent(Cell):
             # Reduce weight of social penalties near the target
             if isinstance(grid.grid[neighbor.row][neighbor.col], TargetCell):
                 social_penalty *= 0.5  # Halve the effect of social penalties near the target
-            random_bias = random.uniform(-0.5, 0.5)
-            total_cost = distance_to_target + random_bias +social_penalty + staying_penalty
+            #random_bias = random.uniform(-0.5, 0.5)
+            total_cost = distance_to_target  +social_penalty + staying_penalty
 
             if total_cost < smallest_cost:
                 smallest_cost = total_cost
                 best_move = neighbor
         #Set lowest possible velocity before reducing it any further to 0.40, graceful penalty only
         if self.velocity >= 0.40:
-            if social_penalty > 0:
+            if social_penalty is not None:
                 self.velocity = self.velocity - social_penalty / 3
                 if self.velocity <= 0:
                     #we dont want negative velocities
@@ -451,7 +467,7 @@ class Agent(Cell):
 #            self.arrived = True
 #            grid.agents.remove(self)
 #            grid.grid[self.row][self.col] = Cell(self.row, self.col, cell_size=self.cell_size)
-    def movement_towards_target(self, grid):
+    def movement_towards_target(self, grid, precomputed_penalties, index):
         if self.arrived:
             return
 
@@ -465,34 +481,22 @@ class Agent(Cell):
 
         best_move = self
         smallest_cost = float('inf')
-
-        for neighbor in valid_neighbors:
-            if grid.movement_method =="dijkstra":
-                distance_to_target = grid.dijkstra_distance_maps[target][neighbor.row][neighbor.col]
-            elif grid.movement_method == "floodfill":
-                distance_to_target = grid.flood_fill_distance_maps[target][neighbor.row][neighbor.col]
-
-            total_cost = distance_to_target  # Add penalties if needed
-            if total_cost < smallest_cost:
-                smallest_cost = total_cost
-                best_move = neighbor
-        if isinstance(grid.grid[best_move.row][best_move.col], TargetCell):
-            self.arrived = True
-            grid.agents.remove(self)
-            # Leave the target cell unchanged
-            grid.grid[self.row][self.col] = Cell(self.row, self.col, cell_size=self.cell_size)
+        new_best_move = self.movement_decision(grid,precomputed_penalties, index)
+        if new_best_move is None:
             return
-
-        if best_move != self and self.euclidean_distance_to(best_move) <= self.movement_range:
+        #print(new_best_move)
+        print(self.euclidean_distance_to(grid.grid[new_best_move[0]][new_best_move[1]]))
+        if new_best_move != self and self.euclidean_distance_to(grid.grid[new_best_move[0]][new_best_move[1]]) <= self.movement_range:
             grid.grid[self.row][self.col] = Cell(self.row, self.col, cell_size=self.cell_size)
-            grid.grid[best_move.row][best_move.col] = self
-            self.row, self.col = best_move.row, best_move.col
+            grid.grid[new_best_move[0]][new_best_move[1]] = self
+            self.row, self.col = new_best_move[0], new_best_move[1]
             print(f"Agent {self.id} moved to ({self.row}, {self.col})")
             self.idle = False
             self.adjust_movement_range()
 
-        elif best_move != self:
+        elif new_best_move != self:
             self.idle = True
+            print("Range to short, adjusting")
             self.adjust_movement_range()
 
 
