@@ -134,6 +134,7 @@ class Grid:
         """Place an agent at a specific position on the grid"""
         #row, col = self.meter_to_rowcol(x, y)
         agent = Agent(row, col, cell_size=self.cell_size)
+        agent.group = random.choice([0, 1])
         if isinstance(self.grid[row][col], Cell) and not isinstance(self.grid[row][col], TargetCell):
             self.grid[row][col] = agent
             self.agents.append(agent)

@@ -3,13 +3,14 @@ from Cell import Cell, SpawnCell, BorderCell, ObstacleCell, Agent, TargetCell
 import matplotlib.pyplot as plt
 import numpy as np 
 from Grid import Grid, Visualization
-from tests import room_square, ChickenTest, RiMEA9, RiMEA4
-
-
-grid, door_cells, roi = RiMEA4( "dijkstra")
+from tests import room_square, ChickenTest, RiMEA9, RiMEA4, Experiment
+import matplotlib
+matplotlib.use("Qt5Agg")
+grid, door_cells, roi = RiMEA4("dijkstra")
 print(roi)
 
-
+#exp_grid, roi = Experiment("dijkstra")
+#exp_grid.plot_grid_state(timestep=0)
 visualization = Visualization(grid)
 #region_cord = (frameSize + 4, frameSize+1, frameSize + 5, frameSize+1)
 #region_2_cord = (length - frameSize - 5, height - frameSize, length - frameSize - 4, height - frameSize)
@@ -22,7 +23,7 @@ fundamental_data = []
 timesteps = 10000
 grid.update_distance_maps()
 agents_crossed = {}  # Dictionary to track agents crossing the boundary
-for i in range(40):
+for i in range(800):
     grid.update(target_list=grid.target_cells, timestep=i)
     #Select current area inside of Hallway or Room to see how many agents are still inside (for FundamentalDiagram)
     area = grid.select_area_by_coordinates(roi[0], roi[1], roi[2], roi[3])
@@ -37,23 +38,16 @@ for i in range(40):
 
     # Calculate density, speed, and flow: Set Boundarys to be doorcells (as defined in Rimea), pass current timestep, already_crossed agents and the area for density calculation
     #print(agents_crossed)
-    if len(agents_crossed) <= initial_count:
-        fd_results = grid.calculate_fundamental_diagram(door_cells, i, agents_crossed, area)
-        print(type(fd_results))
-        fundamental_data.append(fd_results)
+
+    fd_results = grid.calculate_fundamental_diagram(door_cells, i, agents_crossed, area)
+    print(type(fd_results))
+    fundamental_data.append(fd_results)
         #print(fundamental_data)
     # Store results for plotting
     print(type(fundamental_data))
-
-
     # Update previous positions for the next timestep
-
     agent_count = len(grid.agents)
     agent_count_list.append(agent_count)
-
-
-
-
     if agent_count == 0:
         print("All agents have reached their targets. Stopping simulation.")
         break

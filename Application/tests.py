@@ -129,3 +129,32 @@ def RiMEA4(movement_method):
         grid.place_empty_cell(cell.row, cell.col)
     roi = (0,0,corridor_length,height)
     return grid, door_cells, roi
+
+
+def Experiment(movement_method):
+    length = 8
+    height = 16
+    grid = Grid(height=height, length=length, spawn_cells=[], obstacle_cells=[], target_cells=[], cell_size=0.5)
+    target_cells = grid.select_area_by_coordinates(3.5, 0, 4.5,1)
+    #Tische beim Einweiser
+    obstacle_cells = grid.select_area_by_coordinates(0, 16, 3, 16)
+    obstacle_cells += grid.select_area_by_coordinates(length-3, 16, length, 16)
+    #Säulen rechts und links
+    obstacle_cells += grid.select_area_by_coordinates(0, height/2, 0, height/2)
+    obstacle_cells += grid.select_area_by_coordinates(length, height/2, length, height/2)
+    spawn_cells = grid.select_area_by_coordinates(3.5, height,4.5 , height)
+    agent_pos_1 = grid.meter_to_rowcol(3.5, 8)
+    agent_pos_2 = grid.meter_to_rowcol(4.5, 8)
+    grid.place_agent(agent_pos_1[0], agent_pos_1[1])
+    grid.place_agent(agent_pos_2[0], agent_pos_2[1])
+    roi = (0,0,length,height)
+    for target in target_cells:
+        grid.place_agent(target.row, target.col)
+    for cell in obstacle_cells:
+        grid.place_obstacle(cell.row, cell.col)
+    for cell in spawn_cells:
+        grid.place_spawn_cell(cell.row, cell.col)
+    for agent in grid.agents:
+        #Set velocity to 0 so these Agents dont move
+        agent.velocity = 0
+    return grid, roi
