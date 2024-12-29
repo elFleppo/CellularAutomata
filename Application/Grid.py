@@ -590,7 +590,7 @@ class Grid:
    #     plt.title("Fundamental Diagram")
    #     plt.show()
 
-    def calculate_fundamental_diagram(self, boundary, timestep, agents_crossed, region_coordinates):
+    def calculate_fundamental_diagram(self, boundary, timestep, agents_crossed, area):
         """
         Calculate and plot the Fundamental Diagram.
 
@@ -599,35 +599,36 @@ class Grid:
             boundary (list): A list of (row, col) tuples representing the boundary.
             timestep (int): The current simulation timestep.
             agents_crossed (dict): A dictionary tracking agents that crossed the boundary.
-            region_coordinates (tuple): Coordinates defining the region in front of the boundary as (x1, y1, x2, y2).
+
 
         Returns:
             dict: Contains density, flow, and average speed for the timestep.
         """
         # Step 1: Calculate Flow (Agents crossing the boundary in this timestep)
         current_crossed_agents = []
-        for cell in boundary:
-            b_cell = self.grid[cell.row][cell.col]
-            if isinstance(b_cell, Agent) and b_cell.id not in agents_crossed:
-                current_crossed_agents.append(b_cell)
-                agents_crossed[b_cell.id] = timestep  # Track the agent's crossing
+        for coordinates in boundary:
+            cell = self.grid[coordinates.row][coordinates.col]
+            if isinstance(cell, Agent) and cell.id not in agents_crossed:
+                current_crossed_agents.append(cell)
+                agents_crossed[cell.id] = timestep  # Track the agent's crossing
 
         flow = len(current_crossed_agents)  # Number of agents crossing the boundary
 
-        # Step 2: Calculate Density (Agents per square meter in the region in front of the boundary)
+        # Step 2: Calculate Density (Agents per square meter in the Room or Hallway)
        # region_in_front = self.select_area_by_coordinates(*region_coordinates)
         agent_count = 0
-       # agent_count = sum(
-       #     1 for cell in region_coordinates if isinstance(cell, Agent)
-       # )
-        for cell in region_coordinates:
-            if isinstance(self.grid[cell.row][cell.col], Agent):
-                agent_count += 1
-        print(agent_count)
-        region_area = len(region_coordinates) * (self.cell_size ** 2)  # Area of region in m^2
-        print(region_area)
-        density = agent_count / region_area if region_area > 0 else 0
+        agent_count = sum(
+            1 for cell in area if isinstance(cell, Agent)
+        )
+        print(f"agent count{agent_count}")
+        area_squared = sum(
+            self.cell_size**2 for cell in area if(cell.cell_size>0)
+        )
+       # print(area_squared)
+    # Area of region in m^2
 
+        density = agent_count / area_squared if area_squared > 0 else 0
+        print(f"density:{density}")
         # Step 3: Calculate Average Speed (of agents crossing the boundary)
         avg_speed = (
             sum(agent.velocity for agent in current_crossed_agents) / len(current_crossed_agents)
@@ -639,6 +640,7 @@ class Grid:
             "density": density,
             "flow": flow,
             "avg_speed": avg_speed,
+            "timestep": timestep,
         }
 
         print(f"Timestep {timestep}: Density={density:.2f}, Flow={flow:.2f}, AvgSpeed={avg_speed:.2f}")

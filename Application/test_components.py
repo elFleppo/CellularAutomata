@@ -2,6 +2,7 @@ import unittest, math
 from Grid import Grid
 from Cell import Cell, SpawnCell, TargetCell, Agent, ObstacleCell
 from concurrent.futures import ThreadPoolExecutor
+import numpy as np
 #Werden wir später noch in einen dedizierten Testordner verschieben
 class TestAgentBehavior(unittest.TestCase):
 
@@ -254,7 +255,68 @@ class TestDistanceMaps(unittest.TestCase):
                     msg=f"Mismatch in Flood Fill distance map for target ({target_row}, {target_col}) at ({row}, {col})"
                 )
         grid.plot_distance_map(distance_map)
+class TestPenalties(unittest.TestCase):
 
+    def setUp(self):
+        """Set up a grid for testing."""
+        # Create a 5x5 grid with cell size 1.0
+        self.grid = Grid(
+            length=5.0, height=5.0,
+            spawn_cells=[],
+            target_cells=[(4, 4)],
+            obstacle_cells=[],
+            cell_size=1.0
+        )
+        # Place a target at (4, 4)
+        self.grid.place_target(4, 4)
+        # Place an agent at (0, 0)
+        self.grid.place_agent(0, 0)
+        self.agent = self.grid.agents[0]
+
+    def test_precomputed_penalties(self):
+        """Test that precomputed social penalties are calculated correctly."""
+        # Place multiple agents in the grid
+        self.grid.place_agent(1, 1)
+        self.grid.place_agent(2, 2)
+
+        # Compute social penalties using the precomputed method
+        penalties = self.grid.compute_social_penalties()
+
+        # Ensure penalties are calculated for each agent
+        self.assertEqual(len(penalties), len(self.grid.agents))
+
+        # Verify that penalties are non-zero and consistent with agent positions
+        positions = np.array([[agent.row, agent.col] for agent in self.grid.agents])
+        for i, penalty in enumerate(penalties):
+            self.assertGreater(penalty, 0)
+
+            # Check penalty consistency with distances
+            deltas = positions - positions[i]
+            distances = np.linalg.norm(deltas, axis=1)
+            within_cutoff = distances <= 2.0
+
+            # Penalty should be influenced by nearby agents within cutoff distance
+            expected_penalty = sum(
+                np.exp(-(distances[j] ** 2) / (2 * 0.5 ** 2))
+                for j in range(len(distances))
+                if within_cutoff[j] and i != j
+            ) + 0.5  # Include stay penalty
+
+            self.assertAlmostEqual(penalty, expected_penalty, places=2)
+
+    def test_update_with_precomputed_penalties(self):
+        """Test that the update method uses precomputed penalties correctly."""
+        # Place a second agent near the first agent
+        self.grid.place_agent(0, 1)
+        self.grid.update_distance_maps()
+        # Run the update method
+        self.grid.update(self.grid.target_cells, timestep=1)
+
+        # Verify penalties were used in movement decisions
+        precomputed_penalties = self.grid.compute_social_penalties()
+        for i, agent in enumerate(self.grid.agents):
+            penalty = precomputed_penalties[i]
+            self.assertGreater(penalty, 0)
 
 class TestAgentSocialPenalty(unittest.TestCase):
     def setUp(self):
