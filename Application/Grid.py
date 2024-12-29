@@ -749,7 +749,7 @@ class Visualization:
         self.fig, self.ax = plt.subplots()
 
     def plot_grid_state(self, timestep):
-        data = [[cell.state for cell in row] for row in self.grid.grid]
+        data = [[cell.state for cell in row] for row in self.grid.grid]     #2D Liste mit jedem Zellenstatus
 
         custom_colors = {
             0: 'white',
@@ -759,46 +759,39 @@ class Visualization:
             4: 'gray'
         }
 
-        agent_color_map = {0: 'blue', 1: 'red'}  # Map agent groups to colors
+        agent_color_map = {0: 'lightblue', 1: 'darkblue'}  
 
-        cmap = mcolors.ListedColormap([custom_colors[key] for key in sorted(custom_colors.keys())])
+        cmap = mcolors.ListedColormap([custom_colors[key] for key in sorted(custom_colors.keys())])     #erstelle eigne Colormap durch obige Farbwahl 
         bounds = list(sorted(custom_colors.keys())) + [max(custom_colors.keys()) + 1]
         norm = mcolors.BoundaryNorm(bounds, cmap.N)
 
-        self.ax.imshow(data, cmap=cmap, norm=norm)
+        self.ax.cla()                                   #Lösche den vorherigen Plotinhalt.
+        self.ax.imshow(data, cmap=cmap, norm=norm)      #Plotte die Zellen mit eigner Colormap
 
-        # Create a new array to hold the agent colors
-        agent_data = np.zeros((self.grid.rows, self.grid.cols), dtype=int)
-        for row in range(self.grid.rows):
-            for col in range(self.grid.cols):
-                cell = self.grid.grid[row][col]
-                if isinstance(cell, Agent):
-                    # Map the agent's group to a unique value
-                    agent_data[row, col] = 47 + cell.group
+        for agent in self.grid.agents:      #Plotte jeden Agenten auf dem Grid. 
+            if isinstance(self.grid.grid[agent.row][agent.col], Agent): 
+                self.ax.add_patch(plt.Rectangle((agent.col-0.5, agent.row-0.5), 1, 1, edgecolor='black', facecolor=agent_color_map[agent.group]))   #Mit add_patch wird der Agent platziert. Wir ziehen -0.5 ab um den Agenten in der Mitte der ZELLE zu setzen. (Position) 
 
-        # Update the custom_colors dictionary with the new values for agents
-        custom_colors[47] = 'black'  # Default color for agents (not used here)
-        custom_colors[48] = agent_color_map[0]  # Color for group 0 agents
-        custom_colors[49] = agent_color_map[1]  # Color for group 1 agents
+        # Gitterlinien hinzufügen
+        for i in range(len(data)):
+            self.ax.axhline(i+0.5, color='black')   #Wir addieren 0.5 dazu um den Agenten in der Mitte der GITTERLINIEN zu setzen. (Visuell)
+        for j in range(len(data[0])):
+            self.ax.axvline(j+0.5, color='black')
 
-        # Update the bounds and norm to include the new values
-        cmap = mcolors.ListedColormap([custom_colors[key] for key in sorted(custom_colors.keys())])
-        bounds = list(sorted(custom_colors.keys())) + [max(custom_colors.keys()) + 1]
-        norm = mcolors.BoundaryNorm(bounds, cmap.N)
-
-        # Plot the agent data using the updated colormap
-        self.ax.imshow(agent_data, cmap=cmap, norm=norm, alpha=0.8)  # Alpha for layering
+        #Genauer definierter Bereich 
+        self.ax.set_xlim(-1, len(data[0]))  #Von Links nach Rechts
+        self.ax.set_ylim(-1, len(data))
 
         self.ax.set_title(f"Grid State at Timestep {timestep}")
         self.ax.set_xlabel("Columns")
         self.ax.set_ylabel("Rows")
 
-        plt.pause(0.1)
+        plt.pause(0.01)
 
-    def animate_grid_states(self, timesteps):
+    def animate_grid_states(self, timesteps):       #Für jeden Zeitschritt, rufe die Funktion Update auf, welche die Zellen im Grid updated und dann plottet.        
         def update(frame):
-            self.grid.update(target_list=self.grid.target_cells, timestep=frame)
+            self.grid.update(target_list=self.grid.target_cells, timestep=frame)    
             self.plot_grid_state(frame)
 
-        ani = animation.FuncAnimation(self.fig, update, frames=timesteps, interval=10)
+        ani = animation.FuncAnimation(self.fig, update, frames=timesteps, interval=10)   #FuncAnimation regelt die Synchronisation, in diesem Fall 10 Milisekunden   
         plt.show()
