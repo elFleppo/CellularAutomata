@@ -131,10 +131,10 @@ def RiMEA4(movement_method, spawn_rate=1):
     return grid, door_cells, roi
 
 
-def Experiment(movement_method):
+def Experiment(movement_method, spawn_rate):
     length = 8
     height = 16
-    grid = Grid(height=height, length=length, spawn_cells=[], obstacle_cells=[], target_cells=[], cell_size=0.5)
+    grid = Grid(height=height, length=length, spawn_cells=[], obstacle_cells=[], target_cells=[], cell_size=0.5, spawn_rate=spawn_rate)
     target_cells = grid.select_area_by_coordinates(3.5, 0, 4.5,1)
     #Tische beim Einweiser
     obstacle_cells = grid.select_area_by_coordinates(0, 16, 3, 16)

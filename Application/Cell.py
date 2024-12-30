@@ -139,7 +139,7 @@ class SpawnCell(Cell):
         chance = random.randrange(0,1)
         agents_to_spawn = min(max_agents, len(valid_neighbors))
         #Check the random chance against a set rate in order to control how
-        if chance < self.spawn_rate:
+        if chance <= self.spawn_rate:
             for _ in range(agents_to_spawn):
                 cell = valid_neighbors.pop(0)
                 row, col = cell.row, cell.col

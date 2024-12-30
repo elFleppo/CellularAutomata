@@ -12,34 +12,55 @@ matplotlib.use("Qt5Agg")
 #grid, door_cells, roi = RiMEA9(1, "dijsktra")
 #grid, door_cells, roi = RiMEA9(3, "dijkstra")
 #grid, door_cells, roi = RiMEA9(4, "dijkstra")
-grid, door_cells, roi = RiMEA4(movement_method="dijkstra", spawn_rate=0.6)
+#grid, door_cells, roi = RiMEA4(movement_method="dijkstra", spawn_rate=0.6)
 #grid, door_cells, roi = Experiment("dijkstra")
+time_input = input("Bitte geben sie die Anzahl Zeitschritte an (ein Zeitschritt ist 1 Sekunde)")
+timesteps = int(time_input)
 user_input = input("Bitte geben sie an welchen Test (RiMEA4, RiMEA9 oder Experiment) sie durchführen wollen")
-if user_input == "RiMEA4":
+if user_input == "RiMEA9":
     door_input = input("Bitte Anzahl (1-4) Türen angeben")
     pathfinding = input("Bitte Algorithmus wählen (dijkstra, floodfill)")
     if pathfinding == "floodfill":
         algo = "floodfill"
     elif pathfinding == "dijkstra":
         algo = "dijkstra"
+    else:
+        algo = "dijkstra" #Standardwert ist dijkstra
     doors = int(door_input)
-    grid, door_cells, roi = RiMEA4(movement_method=pathfinding, doors=doors )
+    grid, door_cells, roi = RiMEA9(movement_method=algo, Doors=doors)
+
+elif user_input == "RiMEA4":
+    pathfinding = input("Bitte Algorithmus wählen (dijkstra, floodfill)")
+    if pathfinding == "floodfill":
+        algo = "floodfill"
+    elif pathfinding == "dijkstra":
+        algo = "dijkstra"
+    else:
+        algo = "dijkstra" #Standardwert ist dijkstra
+    spawn_input = input("Bitte spawnrate zwischen 0 und 1 eingeben um Personendichte zu variieren (Wird mit einer Zufallsvariable zwischen 0 und 1 verglichen um spawn zu bestimmen)")
+    grid, door_cells, roi = RiMEA4(movement_method=algo,spawn_rate=float(spawn_input))
 
 
-
-
-
-
+elif user_input == "Experiment":
+    pathfinding = input("Bitte Algorithmus wählen (dijkstra, floodfill)")
+    if pathfinding == "floodfill":
+        algo = "floodfill"
+    elif pathfinding == "dijkstra":
+        algo = "dijkstra"
+    else:
+        algo = "dijkstra"  # Standardwert ist dijkstra
+    spawn_input = input("Bitte spawnrate zwischen 0 und 1 eingeben um Personendichte zu variieren (Wird mit einer Zufallsvariable zwischen 0 und 1 verglichen um spawn zu bestimmen)")
+    grid, door_cells, roi = Experiment(movement_method=algo, spawn_rate=float(spawn_input))
 #exp_grid, roi = Experiment("dijkstra")
 #exp_grid.plot_grid_state(timestep=0)
 visualization = Visualization(grid)
 agent_count_list = []
 fundamental_data = []
 
-timesteps = 10000
+
 grid.update_distance_maps()
 agents_crossed = {}  # Dictionary to track agents crossing the boundary
-for i in range(60):
+for i in range(timesteps):
     grid.update(target_list=grid.target_cells, timestep=i)
     print("--------------------------------------------------------------------------------------------------")
     #Select current area inside of Hallway or Room to see how many agents are still inside (for FundamentalDiagram)
