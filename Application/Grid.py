@@ -282,7 +282,7 @@ class Grid:
         print()
 
     #Berechne Social Penalties für gesamtes Grid
-    def compute_social_penalties(grid, cutoff_distance=2.0, penalty_decay_factor=0.5):
+    def compute_social_penalties(grid, cutoff_distance=1.5, penalty_decay_factor=0.85):
         """
         Compute social penalties for all agents using a vectorized approach.
         Parameters:

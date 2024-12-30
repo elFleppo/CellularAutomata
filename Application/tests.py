@@ -107,7 +107,7 @@ def RiMEA4(movement_method, spawn_rate=1):
     # Door_cells sind in diesem Fall eine Zelle vor Ende des Ganges
     door_cells = grid.select_area_by_coordinates(corridor_length-1, 0, corridor_length-1, height)
     obstacle_placement = grid.select_area_by_coordinates(24, 4, 25, 5)
-    obstacle_placement += grid.select_area_by_coordinates(74, 4, 75, 7)
+    obstacle_placement += grid.select_area_by_coordinates(74, 2, 75, 5)
 
     for i in range(0, grid.rows-1):
         grid.place_spawn_cell(i, 0)
