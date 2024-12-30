@@ -106,12 +106,12 @@ def RiMEA9(Doors, movement_method):
 
 
 
-def RiMEA4(movement_method):
+def RiMEA4(movement_method, spawn_rate=1):
     height = 10
     length = 100
     warm_up = 25
     corridor_length = warm_up + length
-    grid = Grid(height=height, length=corridor_length, spawn_cells=[], obstacle_cells=[], target_cells=[], cell_size=1, movement_method=movement_method)
+    grid = Grid(height=height, length=corridor_length, spawn_cells=[], obstacle_cells=[], target_cells=[], cell_size=0.5, movement_method=movement_method, spawn_rate=spawn_rate)
 
     # Door_cells sind in diesem Fall eine Zelle vor Ende des Ganges
     door_cells = grid.select_area_by_coordinates(corridor_length-1, 0, corridor_length-1, height)

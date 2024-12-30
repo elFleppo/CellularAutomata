@@ -126,8 +126,10 @@ class ObstacleCell(Cell):
         return '%'
 # Spawn Zelle. Generiert pro Zeitschritt eine vordefinierte Anzahl agenten auf seinen Moore Nachbar Zellen
 class SpawnCell(Cell):
-    def __init__(self, row, col, cell_size):
-        super().__init__(state=2, row=row, col=col, cell_size=cell_size)  # Spawn cells are active
+    def __init__(self, row, col, cell_size, spawn_rate):
+        super().__init__(state=2, row=row, col=col, cell_size=cell_size)
+        self.spawn_rate = spawn_rate
+        # Spawn cells are active
     #Spawn eine definierte Anzahl Agenten auf deinen Moore Nachbarn und füge die neuen Agenten der grid.agents liste Hinzu
 
 
@@ -136,7 +138,8 @@ class SpawnCell(Cell):
         random.shuffle(valid_neighbors)
         chance = random.randrange(0,1)
         agents_to_spawn = min(max_agents, len(valid_neighbors))
-        if chance < 0.8:
+        #Check the random chance against a set rate in order to control how
+        if chance < self.spawn_rate:
             for _ in range(agents_to_spawn):
                 cell = valid_neighbors.pop(0)
                 row, col = cell.row, cell.col
@@ -242,78 +245,6 @@ class Agent(Cell):
 
         return cells
         
-
-  #  @log_decorator
-    def social_force(self, grid):
-        print("entering social force")
-        neighbors = self.get_neighbors(grid, radius=2)  # Get neighbors within the radius
-        total_neighbors = sum(len(cells) for cells in neighbors.values())
-        penalty = 0  # Initialize the penalty accumulator
-        penalty_factor = 0.6
-        agent_cells = []  # List to store agent cells
-        for distance, cells in neighbors.items():  # neighbors are grouped by distance layers
-            for cell in cells:
-                if isinstance(cell, Agent):  # Check if the cell contains an agent
-                    agent_cells.append(cell)
-
-            # Calculate the percentage of agents among all neighbors
-
-
-        #Sollten wir wo anders abfangen, bei get_neighbors --> darf nicht 0 returnen
-        if total_neighbors == 0:  # Avoid division by zero
-            return 0  # No penalty if no neighbors
-        agent_percentage = len(agent_cells) / total_neighbors
-
-        # Apply penalty only if at least 40% of neighbors are agents
-       # if agent_percentage < 0.2:
-       #    return 0  # No penalty applied if less than 40% are agents
-
-        # Calculate penalty
-        penalty = 0  # Initialize the penalty accumulator
-        for agent in agent_cells:
-            euclidean_distance = self.euclidean_distance_to(agent)  # Calculate distance
-
-            if euclidean_distance > 0:  # Avoid division by zero for self
-                penalty_contribution = 1 / euclidean_distance  # Inverse distance penalty
-                penalty += penalty_contribution
-        print(f"Social force penalty for {self.__hash__()} is {penalty}")
-        return penalty
-   # @log_decorator
-
-    def repulsive_force(self, width, height):
-        if width == 0:  # Ensure no division by zero for width
-            width = 1e-6  # Substitute with a very small number
-        repulsive_force = -height + math.exp(1 / (2/width)**2 -1)
-        return  repulsive_force
-   # @log_decorator
-    def social_penalty(self, grid):
-        """
-        Calculate the social penalty based on agent proximity and movement preference.
-        Returns a penalty score to discourage crowding.
-        """
-        total_penalty = 0
-        cutoff_distance = 3.0  # Maximum distance in meters to consider for social penalty
-        penalty_decay_factor = 0.5  # Control the steepness of the Gaussian decay
-        stay_penalty = 0.5  # Additional penalty for remaining stationary
-
-        # Get neighbors within a cutoff radius
-        neighbors = self.get_neighbors(grid, radius=int(cutoff_distance / grid.cell_size))
-
-        for distance, cells in neighbors.items():
-            for cell in cells:
-                if isinstance(cell, Agent) and not cell.arrived:  # Only consider other agents
-                    # Compute Euclidean distance in meters
-                    euclidean_distance = self.euclidean_distance_to(cell)
-
-                    if euclidean_distance <= cutoff_distance:
-                        # Apply Gaussian decay penalty
-                        penalty_contribution = math.exp(-(euclidean_distance ** 2) / (2 * penalty_decay_factor ** 2))
-                        total_penalty += penalty_contribution
-
-        # Add penalty for staying in place
-        total_penalty += stay_penalty
-
-        return total_penalty
 
 
    # @log_decorator

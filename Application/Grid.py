@@ -20,7 +20,7 @@ def clamp(value, min_value, max_value):
 #Grid Klasse: Auf dem Grid befinden sich Zellobjekte und über das Grid wird das update() der Zellen durchgeführt
 class Grid:
     #Im Init wird das grid entsprechend aufgebaut, es können Listen mit Tuplen für die entsprechenden Zell Objekte mitgegeben werden
-    def __init__(self, length, height, spawn_cells, target_cells, obstacle_cells, cell_size=1.0, movement_method="dijkstra"):
+    def __init__(self, length, height, spawn_cells, target_cells, obstacle_cells, cell_size=1.0, movement_method="dijkstra", spawn_rate=1):
         self.length = length
         self.height = height
         self.cell_size = cell_size
@@ -29,7 +29,8 @@ class Grid:
         self.grid = [
             [Cell(row, col, cell_size=cell_size) for col in range(self.cols)] for row in range(self.rows)
         ]  # Aufbau Grid
-        self.spawn_cells = spawn_cells  # Listen für Spawns, Ziele und Hindernisse
+        self.spawn_cells = spawn_cells
+        self.spawn_rate = spawn_rate# Listen für Spawns, Ziele und Hindernisse
         self.target_cells = target_cells
         self.obstacle_cells = obstacle_cells
         self.agents = []  # Liste mit allen Agenten die sich auf dem Feld befinden
@@ -41,7 +42,7 @@ class Grid:
         # Aufbau von Spawn, Zielen und Hindernissen
         for row, col in spawn_cells:
             #print(row, col)
-            self.grid[row][col] = SpawnCell(row=row, col=col, cell_size=cell_size)
+            self.grid[row][col] = SpawnCell(row=row, col=col, cell_size=cell_size,spawn_rate=self.spawn_rate)
         if obstacle_cells is not None:
             for row, col in obstacle_cells:
                 #print(obstacle_cells)
@@ -116,7 +117,7 @@ class Grid:
     def place_spawn_cell(self, row,col):
         """Place a spawn cell at a specific position on the grid"""
         #row, col = self.meter_to_rowcol(x, y)
-        self.grid[row][col] = SpawnCell(row=row, col=col, cell_size=self.cell_size)
+        self.grid[row][col] = SpawnCell(row=row, col=col, cell_size=self.cell_size, spawn_rate=self.spawn_rate)
         self.spawn_cells.append((row, col))
 
     def place_empty_cell(self, row,col):

@@ -9,18 +9,31 @@ import matplotlib
 matplotlib.use("Qt5Agg")
 #Using the Maps from tests build a grid. every map returns a grid, door_cells (used as boundary zones for flow measurements) and roi (region used to calculate agent density)
 #grid, door_cells, roi = RiMEA9(2,"dijkstra")
-grid, door_cells, roi = Experiment("dijkstra")
-print(roi)
+#grid, door_cells, roi = RiMEA9(1, "dijsktra")
+#grid, door_cells, roi = RiMEA9(3, "dijkstra")
+#grid, door_cells, roi = RiMEA9(4, "dijkstra")
+grid, door_cells, roi = RiMEA4(movement_method="dijkstra", spawn_rate=0.6)
+#grid, door_cells, roi = Experiment("dijkstra")
+user_input = input("Bitte geben sie an welchen Test (RiMEA4, RiMEA9 oder Experiment) sie durchführen wollen")
+if user_input == "RiMEA4":
+    door_input = input("Bitte Anzahl (1-4) Türen angeben")
+    pathfinding = input("Bitte Algorithmus wählen (dijkstra, floodfill)")
+    if pathfinding == "floodfill":
+        algo = "floodfill"
+    elif pathfinding == "dijkstra":
+        algo = "dijkstra"
+    doors = int(door_input)
+    grid, door_cells, roi = RiMEA4(movement_method=pathfinding, doors=doors )
+
+
+
+
+
 
 #exp_grid, roi = Experiment("dijkstra")
 #exp_grid.plot_grid_state(timestep=0)
 visualization = Visualization(grid)
-#region_cord = (frameSize + 4, frameSize+1, frameSize + 5, frameSize+1)
-#region_2_cord = (length - frameSize - 5, height - frameSize, length - frameSize - 4, height - frameSize)
-
-#region = grid.select_area_by_coordinates(frameSize + 4, frameSize, frameSize + 5, frameSize)
 agent_count_list = []
-
 fundamental_data = []
 
 timesteps = 10000
