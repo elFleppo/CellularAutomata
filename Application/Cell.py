@@ -88,8 +88,6 @@ class Cell:
     def potential(self, grid, target_list):
         """Calculate potential based on the negative Euclidean distance to the target cell."""
         target = self.find_target(target_list)
-        #print(f"TARGET:{target[0]},{target[1]}")
-        #print(f"SELF: {self.row}, {self.col}")
 
         # Euclidean distance calculation ( Check if row and col are right)
         distance = self.euclidean_distance_to(target)
@@ -103,13 +101,13 @@ class Cell:
 
 
 # Randzellen die das Feld umschliessen (etwa im Fall eines Raums mit Türen kann ein Border plaziert und danach Targets als Türen auf dem Border definiert werden)
-class BorderCell(Cell):
-    def __init__(self,row, col, cell_size, is_passable=False):
-        super().__init__(state=1, row=row, col=col, cell_size=cell_size, is_passable=is_passable)  # Border cells are always active
+#class BorderCell(Cell):
+ #   def __init__(self,row, col, cell_size, is_passable=False):
+  #      super().__init__(state=1, row=row, col=col, cell_size=cell_size, is_passable=is_passable)  # Border cells are always active
 
 
-    def __repr__(self):
-        return 'B'
+   # def __repr__(self):
+    #    return 'B'
 
 #Hindernisse auf dem Feld
 class ObstacleCell(Cell):
@@ -313,7 +311,7 @@ class Agent(Cell):
         return (best_move.row, best_move.col) if best_move != self else None
 
 
-    def movement_towards_target(self, grid, precomputed_penalties, index):
+    def movement_towards_target(self, grid, precomputed_penalties, index, timestep):
         if self.arrived:
             return
 
@@ -339,12 +337,12 @@ class Agent(Cell):
             self.row, self.col = new_best_move[0], new_best_move[1]
             # print(f"Agent {self.id} moved to ({self.row}, {self.col})")
             self.idle = False
-            self.log_state()
+            self.log_state(timestep)
             self.adjust_movement_range()
 
         elif new_best_move != self:
             self.idle = True
-            self.log_state()
+            self.log_state(timestep)
             print(
                 f"Agent{self.id}: Range {self.movement_range} to short, adjusting. Distance is{self.euclidean_distance_to(grid.grid[new_best_move[0]][new_best_move[1]])}")
             self.adjust_movement_range()

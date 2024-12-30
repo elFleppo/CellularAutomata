@@ -394,8 +394,7 @@ class TestAgentMovementRange(unittest.TestCase):
 
     def test_movement_range_increases(self):
         # Set initial conditions
-       # self.agent.movement_range = 0.4 # Start with this range
-        #self.agent.velocity = 0.4 # Velocity determines the increment
+
         original_range = self.agent._original_movement_range
         original_velocity = self.agent._original_velocity
         # Debug initial values
@@ -404,7 +403,7 @@ class TestAgentMovementRange(unittest.TestCase):
         precomputed_penalties = self.grid.compute_social_penalties()
 
         # Simulate insufficient movement range
-        self.agent.movement_towards_target(self.grid, precomputed_penalties, 0)
+        self.agent.movement_towards_target(self.grid, precomputed_penalties, 0, 0)
 
         # Assert no movement happened due to insufficient range
         self.assertEqual(self.agent.row, 0)
@@ -417,7 +416,7 @@ class TestAgentMovementRange(unittest.TestCase):
         print(f"New Movement Range: {self.agent.movement_range} (Expected: {expected_range})")
         self.assertAlmostEqual(self.agent.movement_range, expected_range, delta=0.1)
 
-        self.agent.movement_towards_target(self.grid, precomputed_penalties, 0)
+        self.agent.movement_towards_target(self.grid, precomputed_penalties, 0, 0)
 
 
 

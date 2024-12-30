@@ -1,5 +1,5 @@
 
-from Cell import Cell, BorderCell, SpawnCell, Agent, TargetCell, ObstacleCell
+from Cell import Cell,  SpawnCell, Agent, TargetCell, ObstacleCell
 
 import random
 import os
@@ -93,25 +93,7 @@ class Grid:
         ]
 
         return selected_cells
-    def get_agents_in_rectangular_roi(self, start_x, start_y, end_x, end_y):
-        """
-        Get all agents within a rectangular ROI defined by real-world coordinates.
-        Parameters:
-            start_x, start_y (float): Bottom-left corner of the rectangle in meters.
-            end_x, end_y (float): Top-right corner of the rectangle in meters.
-        Returns:
-            List[Agent]: List of agents within the ROI.
-        """
-        selected_cells = self.select_area_by_coordinates(start_x, start_y, end_x, end_y)
-        agents_in_roi = [cell for cell in selected_cells if isinstance(cell, Agent)]
-        return agents_in_roi
-    #Plaziere Wand um Feld
-    def place_border(self):
-        """Place a border around the grid"""
-        for r in range(self.rows):
-            for c in range(self.cols):
-                if r == 0 or r == self.rows - 1 or c == 0 or c == self.cols - 1:
-                    self.grid[r][c] = BorderCell(cell_size=self.cell_size)
+
     #Die Untenstehenden methoden erlauben eine Interaktion mit dem Grid ausserhalb der initialisierung
     def place_spawn_cell(self, row,col):
         """Place a spawn cell at a specific position on the grid"""
@@ -165,16 +147,16 @@ class Grid:
         """
         return np.array([agent.arrived for agent in self.agents])
 
-    def get_agent_velocities(self):
-        """
-        Extract the velocities of all agents.
-        Returns:
-            np.ndarray: Array of shape (num_agents,) with agent velocities.
-        """
-        return np.array([agent.velocity for agent in self.agents])
+ #   def get_agent_velocities(self):
+ #       """
+ #       Extract the velocities of all agents.
+ #       Returns:
+ #           np.ndarray: Array of shape (num_agents,) with agent velocities.
+ #       """
+ #       return np.array([agent.velocity for agent in self.agents])
 
 
-    #Helper Methode für Djkstra Algorithmus
+    #Methode für Djkstra Algorithmus
 
     def dijkstra_map(self, target):
         """
@@ -230,7 +212,7 @@ class Grid:
 
         return distance_map
 
-    #Helper Methode für Flood Fill, returned Distance map
+    #Methode für Flood Fill, returned Distance map
 
     def flood_fill_map(self, target_row, target_col, target_state):
         """
@@ -311,17 +293,15 @@ class Grid:
             np.ndarray: Social penalties for all agents.
         """
         positions = grid.get_agent_positions()  # Shape: (num_agents, 2)
-        # If positions is 1D, reshape it
+        # If positions is 1D, reshape it --> Maybe this part here causes some of the Agents to get locked in place, not sure tho
         if positions.ndim == 1:
             positions = positions.reshape(-1, 2)
-        #print(f"Position : None :{positions[:, None, :]}")
-        #print(f"Position  None ::{positions[None, :, :]}")
         arrived = grid.get_agent_arrival_status()  # Shape: (num_agents,)
         num_agents = positions.shape[0]
-        #print(num_agents)
+
         # Compute pairwise Euclidean distances (broadcasting)
-        deltas = positions[:, None, :] - positions[None, :, :]  # Shape: (num_agents, num_agents, 2)
-        distances = np.linalg.norm(deltas, axis=2)  # Shape: (num_agents, num_agents)
+        deltas = positions[:, None, :] - positions[None, :, :]  # Expected Shape: (num_agents, num_agents, 2)
+        distances = np.linalg.norm(deltas, axis=2)  # Expected Shape: (num_agents, num_agents)
 
         # Apply cutoff distance (set penalties to 0 beyond this distance)
         mask = (distances <= cutoff_distance) & ~np.eye(num_agents, dtype=bool)  # Ignore self-distances
@@ -333,10 +313,6 @@ class Grid:
 
         # Sum penalties for each agent
         total_penalties = penalties.sum(axis=1)  # Shape: (num_agents,)
-
-        # Add a small penalty for staying in place
-        #stay_penalty = 0.5
-        #total_penalties += stay_penalty
 
         return total_penalties
 
@@ -364,7 +340,7 @@ class Grid:
 
             # Call the agent's movement logic
             #print(f"Agent {agent.id} moving from ({agent.row}, {agent.col})")
-            agent.movement_towards_target(self, precomputed_penalties, i)
+            agent.movement_towards_target(self, precomputed_penalties, i, timestep=timestep)
 
             # Debugging
             #print(f"Agent {agent.id} now at ({agent.row}, {agent.col})")
@@ -386,8 +362,7 @@ class Grid:
             if isinstance(cell, SpawnCell):
                 max_agents = 1
                 cell.spawn_agents(self, max_agents)
-        if timestep ==0:
-            self.create_logfile()
+
         self.log_grid_state(timestep)
 
 #    def update(self, target_list, timestep):

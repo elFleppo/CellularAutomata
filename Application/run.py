@@ -1,5 +1,5 @@
 from Grid import Grid
-from Cell import Cell, SpawnCell, BorderCell, ObstacleCell, Agent, TargetCell
+from Cell import Cell, SpawnCell, ObstacleCell, Agent, TargetCell
 import matplotlib.pyplot as plt
 import numpy as np 
 from Grid import Grid, Visualization
