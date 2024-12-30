@@ -231,7 +231,7 @@ class TestDistanceMaps(unittest.TestCase):
 
         # Compute the distance map
         target_row, target_col = 2, 2
-        distance_map = grid.flood_fill(target_row, target_col, target_state=3)
+        distance_map = grid.flood_fill_map(target_row, target_col, target_state=3)
 
         # Expected distance map
         expected_map = [
@@ -370,7 +370,7 @@ class TestAgentMovementRange(unittest.TestCase):
 
     def setUp(self):
         # Create a Grid instance
-        self.cell_size = 1.0
+        self.cell_size = 1
         self.length = 5  # 5 cells wide
         self.height = 5  # 5 cells tall
 

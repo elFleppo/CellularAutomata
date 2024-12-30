@@ -93,7 +93,6 @@ class Grid:
         ]
 
         return selected_cells
-
     def get_agents_in_rectangular_roi(self, start_x, start_y, end_x, end_y):
         """
         Get all agents within a rectangular ROI defined by real-world coordinates.
@@ -148,6 +147,8 @@ class Grid:
        # row, col = self.meter_to_rowcol(x, y)
         cell = self.grid[row][col]
         return isinstance(cell, Agent)
+
+    #Methoden für die Social Penalty berechnung (mit numpy für bessere leistung da anfänglich zu langsam)
     def get_agent_positions(self):
         """
         Extract the positions of all agents as a NumPy array.
@@ -175,7 +176,7 @@ class Grid:
 
     #Helper Methode für Djkstra Algorithmus
 
-    def compute_distance_map(self, target):
+    def dijkstra_map(self, target):
         """
         Compute the shortest path distances from the target to all cells using Dijkstra's algorithm.
         This version allows setting distances on Agent cells but prohibits Obstacle cells.
@@ -231,7 +232,7 @@ class Grid:
 
     #Helper Methode für Flood Fill, returned Distance map
 
-    def flood_fill(self, target_row, target_col, target_state):
+    def flood_fill_map(self, target_row, target_col, target_state):
         """
         Perform reverse flood-fill starting from the target (target_row, target_col).
         Computes a distance map where cells closer to the target have smaller values.
@@ -250,7 +251,7 @@ class Grid:
         target_cell = self.grid[target_row][target_col]
 
         # Early exit if the target cell doesn't match the target state or is impassable
-        if target_cell.state != target_state or not target_cell.is_passable():
+        if target_cell.state != target_state or not target_cell.is_passable:
             raise ValueError("Target cell is invalid or impassable.")
 
         # Initialize the distance map with infinity
@@ -291,13 +292,14 @@ class Grid:
 
         return distance_map
 
-    # Display Methode: Momentan noch in Konsole, später mit Plots
+    # Konsolenausgabe
     def display(self):
         """Print the current state of the grid"""
         for row in self.grid:
             print(" ".join(str(cell) for cell in row))
         print()
 
+    #Berechne Social Penalties für gesamtes Grid
     def compute_social_penalties(grid, cutoff_distance=2.0, penalty_decay_factor=0.5):
         """
         Compute social penalties for all agents using a vectorized approach.
@@ -341,36 +343,7 @@ class Grid:
 
 
 
-    #Update funktion: Wir müssen nur die Agenten bewegen und die Spawns für den nächsten Zeitschritt durchführen
- #  def update(self, target_list, timestep):
- #
- #      if timestep == 0:
- #          self.update_distance_maps()
- #
- #      #Bewege Agenten
- #      for agent in self.agents:
- #          if agent.arrived == True:
- #              self.agents.remove(agent)
- #
- #          #print(agent)
- #          if self.movement_method == "floodfill":
- #              agent.movement_towards_target(self)
- #          elif self.movement_method == "dijkstra":
- #              agent.movement_towards_target(self)  # Pass the grid instance
- #
- #          agent.log_state(timestep)
- #      densities, speeds, flows = self.calculate_density_speed_flow()
- #      self.density_data.append(densities)
- #      self.speed_data.append(speeds)
- #      self.flow_data.append(flows)
- #      #Spawne Agenten (
- #      for row, col in self.spawn_cells:
- #          cell = self.grid[row][col]
- #          if isinstance(cell, SpawnCell):  # Check if the cell at (row, col) is a SpawnCell
- #              max_agents = 1  # Adjust the number of agents to spawn as needed
- #              cell.spawn_agents(self, max_agents)
- #
- #      self.log_grid_state(timestep)
+
     def update(self, target_list, timestep):
         """
         Update the grid by moving agents and handling arrivals.
@@ -401,7 +374,7 @@ class Grid:
             #print(f"Removing agent {agent} from ({agent.row}, {agent.col})")
             self.agents.remove(agent)
 
-            # Restore target cell explicitly
+            # Restore target cell explicitly (We Had alot of issues with Targets being overwritten, so we try to catch it at multiple levels)
             if (agent.row, agent.col) in target_list:
                 self.grid[agent.row][agent.col] = TargetCell(agent.row, agent.col, self.cell_size)
             else:
@@ -413,7 +386,8 @@ class Grid:
             if isinstance(cell, SpawnCell):
                 max_agents = 1
                 cell.spawn_agents(self, max_agents)
-
+        if timestep ==0:
+            self.create_logfile()
         self.log_grid_state(timestep)
 
 #    def update(self, target_list, timestep):
@@ -461,68 +435,8 @@ class Grid:
 #                max_agents = 1
 #                cell.spawn_agents(self, max_agents)
 #        self.log_grid_state(timestep)
-    #def update(self, target_list, timestep):
-#    """
-#    Update the grid by moving agents and handling arrivals.
-#    """
-#    if timestep == 0:
-#        self.update_distance_maps()
-
-#    # Precompute penalties for agents
-#    precomputed_penalties = self.compute_social_penalties()
-
-#    # List to track agents to remove
-#    agents_to_remove = []
-
-#    for agent in self.agents[:]:  # Iterate over a copy of the agents list
-#        if agent.arrived:
-#            agents_to_remove.append(agent)
-#            continue
-
-#        # Use the agent's own movement logic
-#        print(f"moving agent {agent.id}")
-#        agent.movement_towards_target(self)
-
-#    # Remove agents that have arrived
-#    for agent in agents_to_remove:
-#        print(f"Removing agent {agent} from ({agent.row}, {agent.col})")
-#        self.agents.remove(agent)
-
-#        # Restore target cell explicitly
-#        if (agent.row, agent.col) in target_list:
-#            self.grid[agent.row][agent.col] = TargetCell(agent.row, agent.col, self.cell_size)
-#        else:
-#            self.grid[agent.row][agent.col] = Cell(agent.row, agent.col, self.cell_size)
-
-#    # Spawn new agents
-#    for row, col in self.spawn_cells:
-#        cell = self.grid[row][col]
-#        if isinstance(cell, SpawnCell):
-#            max_agents = 1
-#            cell.spawn_agents(self, max_agents)
-
-#    self.log_grid_state(timestep)
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-    def calculate_movement(self,agent):
-        if not agent.arrived:
-            # Store the agent's movement decision (current and next position)
-            return (agent, agent.movement_decision(self))  # New method to compute move
-        return None
 
 
 
@@ -539,11 +453,11 @@ class Grid:
             # Flood-fill distance map
             if self.movement_method == "floodfill":
 
-                self.flood_fill_distance_maps[(row, col)] = self.flood_fill(row, col, target_state=3)
+                self.flood_fill_distance_maps[(row, col)] = self.flood_fill_map(row, col, target_state=3)
             elif self.movement_method == "dijkstra":
 
             # Dijkstra distance map
-                self.dijkstra_distance_maps[(row, col)] = self.compute_distance_map((row, col))
+                self.dijkstra_distance_maps[(row, col)] = self.dijkstra_map((row, col))
 
     def plot_distance_map(self, distance_map, title="Distance Map"):
         """
@@ -704,35 +618,7 @@ class Grid:
         print(f"Timestep {timestep}: Density={density:.2f}, Flow={flow:.2f}, AvgSpeed={avg_speed:.2f}")
         return results
 
-    def plot_fundamental_diagram(self, data):
-        """
-        Plot the Fundamental Diagram based on collected data.
 
-        Parameters:
-            data (list): A list of dictionaries containing density, flow, and average speed values.
-        """
-        densities = [entry["density"] for entry in data]
-        flows = [entry["flow"] for entry in data]
-        avg_speeds = [entry["avg_speed"] for entry in data]
-
-        fig, ax1 = plt.subplots()
-
-        # Plot Flow vs. Density
-        ax1.plot(densities, flows, 'b-o', label="Flow")
-        ax1.set_xlabel("Density (agents/m^2)")
-        ax1.set_ylabel("Flow (agents/s)", color="blue")
-        ax1.tick_params(axis='y', labelcolor="blue")
-
-        # Plot Avg Speed vs. Density
-        ax2 = ax1.twinx()
-        ax2.plot(densities, avg_speeds, 'r-s', label="Average Speed")
-        ax2.set_ylabel("Average Speed (m/s)", color="red")
-        ax2.tick_params(axis='y', labelcolor="red")
-
-        fig.tight_layout()
-        plt.title("Fundamental Diagram")
-        plt.show()
-    
 
 
     def create_logfile(self):
