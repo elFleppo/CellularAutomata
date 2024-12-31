@@ -353,9 +353,9 @@ class TestGridPenalties(unittest.TestCase):
         # Validate penalties are computed correctly
         self.assertEqual(len(precomputed_penalties), len(self.agents))
 
-        # Example manual calculations based on the logic
+
         expected_penalties = [
-            0.28898620536195957,  # Adjust these values based on your manual calculations
+            0.28898620536195957,
             0.28898620536195957,
             0.28898620536195957,
             0.28898620536195957
