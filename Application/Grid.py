@@ -282,7 +282,7 @@ class Grid:
         print()
 
     #Berechne Social Penalties für gesamtes Grid
-    def compute_social_penalties(grid, cutoff_distance=1.5, penalty_decay_factor=0.85):
+    def compute_social_penalties(grid, cutoff_distance=1.5, penalty_decay_factor=0.5):
         """
         Compute social penalties for all agents using a vectorized approach.
         Parameters:
@@ -365,51 +365,51 @@ class Grid:
 
         self.log_grid_state(timestep)
 
-#    def update(self, target_list, timestep):
-#        """
-#        Update the grid by moving agents and handling arrivals.
-#        """
-#        if timestep == 0:
-#            self.update_distance_maps()
-#        # Compute social penalties
-#        precomputed_penalties = self.compute_social_penalties()
-#        # List to track agents to remove
-#        agents_to_remove = []
-#        for i, agent in enumerate(self.agents[:]):  # Iterate over a copy of the agents list
-#            if agent.arrived:
-#                agents_to_remove.append(agent)
-#                continue
-#            new_position = agent.movement_decision(self, precomputed_penalties, i)
-#            if new_position:
-#                current_row, current_col = agent.row, agent.col
-#                new_row, new_col = new_position
-#                # Update grid: Move the agent
-#                if not isinstance(self.grid[new_row][new_col], TargetCell):
-#                    self.grid[new_row][new_col] = agent
-#                # Restore the current cell
-#                self.grid[current_row][current_col] = (
-#                    TargetCell(current_row, current_col, self.cell_size)
-#                    if (current_row, current_col) in target_list
-#                    else Cell(current_row, current_col, self.cell_size)
-#                )
-#                # Update agent position
-#                agent.row, agent.col = new_row, new_col
-#        # Remove agents that have arrived
-#        for agent in agents_to_remove:
-#            print(f"Removing agent {agent} from ({agent.row}, {agent.col})")
-#            self.agents.remove(agent)
-#            # Restore target cell explicitly
-#            if (agent.row, agent.col) in target_list:
-#                self.grid[agent.row][agent.col] = TargetCell(agent.row, agent.col, self.cell_size)
-#            else:
-#                self.grid[agent.row][agent.col] = Cell(agent.row, agent.col, self.cell_size)
-#        # Spawn new agents
-#        for row, col in self.spawn_cells:
-#            cell = self.grid[row][col]
-#            if isinstance(cell, SpawnCell):
-#                max_agents = 1
-#                cell.spawn_agents(self, max_agents)
-#        self.log_grid_state(timestep)
+    def update_no_penalties(self, target_list, timestep):
+        """
+        Update the grid by moving agents and handling arrivals.
+        """
+        if timestep == 0:
+            self.update_distance_maps()
+        # Compute social penalties
+        precomputed_penalties = self.compute_social_penalties()
+        # List to track agents to remove
+        agents_to_remove = []
+        for i, agent in enumerate(self.agents[:]):  # Iterate over a copy of the agents list
+            if agent.arrived:
+                agents_to_remove.append(agent)
+                continue
+            new_position = agent.movement_decision(self, precomputed_penalties, i)
+            if new_position:
+                current_row, current_col = agent.row, agent.col
+                new_row, new_col = new_position
+                # Update grid: Move the agent
+                if not isinstance(self.grid[new_row][new_col], TargetCell):
+                    self.grid[new_row][new_col] = agent
+                # Restore the current cell
+                self.grid[current_row][current_col] = (
+                    TargetCell(current_row, current_col, self.cell_size)
+                    if (current_row, current_col) in target_list
+                    else Cell(current_row, current_col, self.cell_size)
+                )
+                # Update agent position
+                agent.row, agent.col = new_row, new_col
+        # Remove agents that have arrived
+        for agent in agents_to_remove:
+            print(f"Removing agent {agent} from ({agent.row}, {agent.col})")
+            self.agents.remove(agent)
+            # Restore target cell explicitly
+            if (agent.row, agent.col) in target_list:
+                self.grid[agent.row][agent.col] = TargetCell(agent.row, agent.col, self.cell_size)
+            else:
+                self.grid[agent.row][agent.col] = Cell(agent.row, agent.col, self.cell_size)
+        # Spawn new agents
+        for row, col in self.spawn_cells:
+            cell = self.grid[row][col]
+            if isinstance(cell, SpawnCell):
+                max_agents = 1
+                cell.spawn_agents(self, max_agents)
+        self.log_grid_state(timestep)
 
 
 
@@ -621,7 +621,7 @@ class Visualization:
             4: 'gray'
         }
 
-        agent_color_map = {0: 'lightblue', 1: 'darkblue'}  
+        agent_color_map = {0: 'purple', 1: 'darkblue'}
 
         cmap = mcolors.ListedColormap([custom_colors[key] for key in sorted(custom_colors.keys())])     #erstelle eigne Colormap durch obige Farbwahl 
         bounds = list(sorted(custom_colors.keys())) + [max(custom_colors.keys()) + 1]

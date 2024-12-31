@@ -206,7 +206,7 @@ class Agent(Cell):
 
         return True  # Line of sight is clear
 
-    #bresenham_line fürht eine Liste aller Zellen die auf der line_of_sight zum Ziel sind (um Sichtkontakt zum Ziel zu prüfen)
+    #bresenham_line fürht eine Liste aller Zellen die auf der line_of_sight zum Ziel sind (um Sichtkontakt zum Ziel zu prüfen). Könnte
     def bresenham_line(self, x1, y1, x2, y2):
         """Bresenham's Line Algorithm to calculate all cells between two points."""
         cells = []
@@ -241,6 +241,9 @@ class Agent(Cell):
         # print(self.idle)
         if self.idle:
             # print(f"Original Range{self._original_movement_range} and Original velocity{self._original_velocity}, adjusted velocity was {self.velocity} and movement was {self.movement_range}")
+            if self.velocity <= self.cell_size:
+                self.velocity += self.cell_size
+
             self.movement_range += self.velocity
 
             print("MOVEMENT INCREASE")
@@ -310,7 +313,6 @@ class Agent(Cell):
 
         return (best_move.row, best_move.col) if best_move != self else None
 
-
     def movement_towards_target(self, grid, precomputed_penalties, index, timestep):
         if self.arrived:
             return
@@ -335,25 +337,18 @@ class Agent(Cell):
             grid.grid[self.row][self.col] = Cell(self.row, self.col, cell_size=self.cell_size)
             grid.grid[new_best_move[0]][new_best_move[1]] = self
             self.row, self.col = new_best_move[0], new_best_move[1]
+            self.route.append((new_best_move[0], new_best_move[1]))
             # print(f"Agent {self.id} moved to ({self.row}, {self.col})")
             self.idle = False
             self.log_state(timestep)
             self.adjust_movement_range()
 
-        elif new_best_move != self:
+        elif new_best_move != self and self.euclidean_distance_to(grid.grid[new_best_move[0]][new_best_move[1]]) > self.movement_range:
             self.idle = True
             self.log_state(timestep)
             print(
                 f"Agent{self.id}: Range {self.movement_range} to short, adjusting. Distance is{self.euclidean_distance_to(grid.grid[new_best_move[0]][new_best_move[1]])}")
             self.adjust_movement_range()
-
-
-
-
-
-
-
-
 
     def __repr__(self):
         return 'A'  # Represent agent with 'A'

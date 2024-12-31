@@ -11,7 +11,8 @@ matplotlib.use("Qt5Agg")
 time_input = input("Bitte geben sie die Anzahl Zeitschritte an (ein Zeitschritt ist 1 Sekunde)")
 timesteps = int(time_input)
 user_input = input("Bitte geben sie an welchen Test (RiMEA4, RiMEA9 oder Experiment) sie durchführen wollen")
-if user_input == "RiMEA9":
+user_input = user_input.lower()
+if user_input == "rimea9":
     door_input = input("Bitte Anzahl (1-4) Türen angeben")
     pathfinding = input("Bitte Algorithmus wählen (dijkstra, floodfill)")
     if pathfinding == "floodfill":
@@ -22,7 +23,7 @@ if user_input == "RiMEA9":
         algo = "dijkstra" #Standardwert ist dijkstra
     doors = int(door_input)
     grid, door_cells, roi = RiMEA9(movement_method=algo, Doors=doors)
-elif user_input == "RiMEA4":
+elif user_input == "rimea4":
     pathfinding = input("Bitte Algorithmus wählen (dijkstra, floodfill)")
     if pathfinding == "floodfill":
         algo = "floodfill"
@@ -32,7 +33,7 @@ elif user_input == "RiMEA4":
         algo = "dijkstra" #Standardwert ist dijkstra
     spawn_input = input("Bitte spawnrate zwischen 0 und 1 eingeben um Personendichte zu variieren (Wird mit einer Zufallsvariable zwischen 0 und 1 verglichen um spawn zu bestimmen)")
     grid, door_cells, roi = RiMEA4(movement_method=algo,spawn_rate=float(spawn_input))
-elif user_input == "Experiment":
+elif user_input == "experiment":
     pathfinding = input("Bitte Algorithmus wählen (dijkstra, floodfill)")
     if pathfinding == "floodfill":
         algo = "floodfill"
@@ -49,7 +50,7 @@ agent_count_list = []
 fundamental_data = []
 
 
-grid.update_distance_maps()# Befor wir die Simulation starten setzen wir bereits die Distance-Maps für Dijkstra/Floodfill
+
 agents_crossed = {}  # Dictionary to track agents crossing the boundary
 for i in range(timesteps):
     grid.update(target_list=grid.target_cells, timestep=i)
