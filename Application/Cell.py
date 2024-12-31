@@ -1,18 +1,19 @@
 
 import random
 import math
-
+import numpy as np
 from decorator import log_decorator
 
 
 # one file per cell?
 class Cell:
     #Grundbaustein, jede Zelle kennt seine Position auf dem Grid und den entsprechenden state
-    def __init__(self, row, col,cell_size, state=0):
+    def __init__(self, row, col,cell_size, state=0, is_passable=True):
         self.row = row  # Store the row position
         self.col = col  # Store the column position
         self.state = state  # 0 for dead/inactive, 1 for alive/active
         self.cell_size = cell_size
+        self.is_passable = is_passable
 
     #Methode welche die naheliegendste Target Zelle anhand einer target list (Tuples aus Koordinaten) sucht
     @log_decorator
@@ -61,123 +62,114 @@ class Cell:
 
         return neighbors
     @log_decorator
+    def valid_neighbors(self, neighbors):
+        valid_neighbors = [
+            cell for layer in neighbors.values()
+            for cell in layer
+            if cell.is_passable
+        ]
+        return valid_neighbors
+    @log_decorator
     def euclidean_distance_to(self, other):
        #Euklidische Distanz zwischen Zwei Zellen
         return math.sqrt((self.row - other.row) ** 2  + (self.col - other.col) ** 2) *self.cell_size
+
+    def manhattan_difference_to(self, other_cell):
+        """Calculate the height and length difference between this cell and another cell."""
+        height_diff = abs(self.row - other_cell.row)
+        length_diff = abs(self.col - other_cell.col)
+        return height_diff, length_diff
 
 
     #Jedes Feld hat einen Potentialwert zu der naheliegendsten Target Zelle
 
     @log_decorator
-
+    #Alte Funktion welche bein den ersten Versionen verwendet wurde. Jede zelle hatte als potenzial die negative euklidische Distanz zum nächstgelegenem Ziel
     def potential(self, grid, target_list):
         """Calculate potential based on the negative Euclidean distance to the target cell."""
         target = self.find_target(target_list)
-        #print(f"TARGET:{target[0]},{target[1]}")
-        #print(f"SELF: {self.row}, {self.col}")
 
         # Euclidean distance calculation ( Check if row and col are right)
         distance = self.euclidean_distance_to(target)
 
         # Return the negative distance as potential
         return -distance
-    #is_passable (Kann ich von einem Agenten besucht werden). Evtl als Variable statt Methode?
- # check naming
-    def is_passable(self):
-        return True  # Most cells are passable by default
+
     #Momentane Visualisierung noch in Konsole mit string repr. Für später dann Plots mit Daten aller Timesteps
     def __repr__(self):
         return "0"
 
 
 # Randzellen die das Feld umschliessen (etwa im Fall eines Raums mit Türen kann ein Border plaziert und danach Targets als Türen auf dem Border definiert werden)
-class BorderCell(Cell):
-    def __init__(self,row, col, cell_size):
-        super().__init__(state=1, row=row, col=col, cell_size=cell_size)  # Border cells are always active
+#class BorderCell(Cell):
+ #   def __init__(self,row, col, cell_size, is_passable=False):
+  #      super().__init__(state=1, row=row, col=col, cell_size=cell_size, is_passable=is_passable)  # Border cells are always active
 
 
-    def is_passable(self):
-        return False  # Border cells are impassable
-
-    def __repr__(self):
-        return 'B'
+   # def __repr__(self):
+    #    return 'B'
 
 #Hindernisse auf dem Feld
 class ObstacleCell(Cell):
-    def __init__(self, row, col, cell_size):
-        super().__init__(state=4, row=row, col=col, cell_size=cell_size)
-    def is_passable(self):
-        return False #Obstacles are impassable
+    def __init__(self, row, col, cell_size, is_passable=False):
+        super().__init__(state=4, row=row, col=col, cell_size=cell_size, is_passable=False)
+
     def __repr__(self):
         return '%'
 # Spawn Zelle. Generiert pro Zeitschritt eine vordefinierte Anzahl agenten auf seinen Moore Nachbar Zellen
 class SpawnCell(Cell):
-    def __init__(self, row, col, cell_size):
-        super().__init__(state=2, row=row, col=col, cell_size=cell_size)  # Spawn cells are active
+    def __init__(self, row, col, cell_size, spawn_rate, is_passable=False):
+        super().__init__(state=2, row=row, col=col, cell_size=cell_size, is_passable=False)
+        self.spawn_rate = spawn_rate
+        # Spawn cells are active
     #Spawn eine definierte Anzahl Agenten auf deinen Moore Nachbarn und füge die neuen Agenten der grid.agents liste Hinzu
 
 
     def spawn_agents(self, grid, max_agents):
-        neighbors = self.get_neighbors(grid, radius=1)
-        valid_neighbors = [
-            cell for layer in neighbors.values()
-            for cell in layer
-            if not grid.is_cell_occupied(cell.row, cell.col) and cell.is_passable()
-        ]
-
+        valid_neighbors = self.valid_neighbors(self.get_neighbors(grid, radius=1))
         random.shuffle(valid_neighbors)
         chance = random.randrange(0,1)
         agents_to_spawn = min(max_agents, len(valid_neighbors))
-        if chance < 0.8:
+        #Check the random chance against a set rate in order to control how
+        if chance <= self.spawn_rate:
             for _ in range(agents_to_spawn):
                 cell = valid_neighbors.pop(0)
                 row, col = cell.row, cell.col
                 agent = Agent(row, col, cell_size=self.cell_size)
+                agent.group = random.choice([0, 1])  # NEUE ZEILE
                 grid.grid[row][col] = agent
                 grid.agents.append(agent)
 
-    def is_passable(self):
-        return False  #Agenten können nicht Spawnzellen laufen
+
 
     def __repr__(self):
         return 'S'  # Represent spawn cells with 'S'
 
 #Ziele: Agenten bewegen sich auf die Ziele
 class TargetCell(Cell):
-    def __init__(self, row, col, cell_size):
-        super().__init__(state=3, row=row, col=col, cell_size=cell_size)  # Target cells are active
+    def __init__(self, row, col, cell_size, is_passable=True):
+        super().__init__(state=3, row=row, col=col, cell_size=cell_size, is_passable=is_passable)  # Target cells are active
 
-    def is_passable(self):
-        return True  # Targets are passable to agents
+
 
     def __repr__(self):
         return 'T'  # Represent target cells with 'T'
 class Agent(Cell):
-    def __init__(self, row, col, cell_size):
-        super().__init__(state=47, row=row, col=col, cell_size=cell_size) # Set the agent state as before
+    def __init__(self, row, col, cell_size,is_passable=False):
+        super().__init__(state=47, row=row, col=col, cell_size=cell_size, is_passable=is_passable) # Set the agent state as before
         self.arrived = False
         #velocity wird später verwendet um die Gehgeschwindigkeit der einzelnen Agenten zu verändern
-        self.velocity = random.uniform(0.75, 1.5)
+        #self.velocity = random.uniform(0.5, 1.5)
         self.id = self.__hash__()
         self.route = []
-        self.movement_range = self.velocity
- #Momentan nicht in Verwendung da wir Ziele als Liste führen und nicht immer als Grid Search finden müssen
- #   def find_nearest_target(self, grid):
- #       """Find the nearest TargetCell on the grid to this agent's current position."""
- #       min_distance = float('inf')
- #       nearest_target = None
- #
- #       for target_row in range(grid.rows):
- #           for target_col in range(grid.cols):
- #               cell = grid.grid[target_row][target_col]
- #               if isinstance(cell, TargetCell):
- #                   # Calculate Euclidean distance using self.row and self.col
- #                   distance = math.sqrt((target_row - self.row) ** 2 + (target_col - self.col) ** 2)
- #                   if distance < min_distance:
- #                       min_distance = distance
- #                       nearest_target = (target_row, target_col)
- #
- #       return nearest_target  # Returns (target_row, target_col) or None if no TargetCell is found
+        self.target = None
+        self.group = None
+        self._original_velocity = random.uniform(0.5, 1.5)
+        self._original_movement_range = self.original_velocity
+        self.velocity = self._original_velocity
+        self.movement_range = self._original_movement_range
+        self.idle = None
+
     def log_state(self, timestep, log_file="logs/agent_states.log"):
         """Log the agent's state to a file."""
 
@@ -186,12 +178,19 @@ class Agent(Cell):
                 f"Timestep: {timestep}, Agent ID: {self.id}, Position: (row: {self.row}, col: {self.col}), Route: {self.route}\n "
                 f"State: {self.state}, Arrived: {self.arrived}, Velocity: {self.velocity}\n"
             )
+    @property
+    def original_velocity(self):
+        """Access the original velocity."""
+        return self._original_velocity
+    @property
+    def original_movement_range(self):
+        """Access the original movement range."""
+        return self._original_movement_range
+    def restore_velocity(self):
+        self.velocity = self._original_velocity
+    def restore_movement_range(self):
+        self.movement_range = self._original_movement_range
 
-
-
-
-    def is_passable(self):
-        return False  # Agents are impassable (to other agents, for instance)
 
     #Momentan noch nicht in Verwendung aber wird für die Sichtlinie zum Ziel verwendet
     def line_of_sight(self, grid):
@@ -207,7 +206,7 @@ class Agent(Cell):
 
         return True  # Line of sight is clear
 
-    #bresenham_line fürht eine Liste aller Zellen die auf der line_of_sight zum Ziel sind (um Sichtkontakt zum Ziel zu prüfen)
+    #bresenham_line fürht eine Liste aller Zellen die auf der line_of_sight zum Ziel sind (um Sichtkontakt zum Ziel zu prüfen). Könnte
     def bresenham_line(self, x1, y1, x2, y2):
         """Bresenham's Line Algorithm to calculate all cells between two points."""
         cells = []
@@ -230,149 +229,126 @@ class Agent(Cell):
                 y1 += sy
 
         return cells
-        
-
-    @log_decorator
-    def social_force(self, grid):
-        print("entering social force")
-        neighbors = self.get_neighbors(grid, radius=2)  # Get neighbors within the radius
-        total_neighbors = sum(len(cells) for cells in neighbors.values())
-        penalty = 0  # Initialize the penalty accumulator
-        penalty_factor = 0.6
-        agent_cells = []  # List to store agent cells
-        for distance, cells in neighbors.items():  # neighbors are grouped by distance layers
-            for cell in cells:
-                if isinstance(cell, Agent):  # Check if the cell contains an agent
-                    agent_cells.append(cell)
-
-            # Calculate the percentage of agents among all neighbors
 
 
-        #Sollten wir wo anders abfangen, bei get_neighbors --> darf nicht 0 returnen
-        if total_neighbors == 0:  # Avoid division by zero
-            return 0  # No penalty if no neighbors
-        agent_percentage = len(agent_cells) / total_neighbors
+    # Bewegungslogik --> Untestehend sind die 3 Methoden über welche die Bewegung gesteuert wird.
+    #                   adjust_movement_range --> Erhöht die movement_range um die momentane velocity (ich komme in t+1 nicht an, also warte ich und bei t+2 kann ich das Ziel erreichen)
+    #                   movement_decision --> Basierend auf den social penalties und der distance map wird das beste ziel gewählt. Falls der aktuelle standort bestes ziel ist wird None returned (bei None wird sich nicht bewegt)
+    #                   movement_towards_target --> nutzt die beiden oberen methoden um sich zum Ziel zu bewegen. Ist die euklidische Distanz zu gross erhähen wir die movement range für t+1 mit adjust_movement_range. Ist dies der Fall wird der Agent auf "idle" gestellt
+    #                                               sobald der Agent sich bewegt hat wird der "idle" Modus beendet und die Movement range sowie geschwindigkeit sollten wieder zum standardwert zurückkehren
+    def adjust_movement_range(self):
+        # Methode wird aufgerufen wenn Ziel nicht in einem Zeitschritt erreicht werden kann -->
+        # print(self.idle)
+        if self.idle:
+            # print(f"Original Range{self._original_movement_range} and Original velocity{self._original_velocity}, adjusted velocity was {self.velocity} and movement was {self.movement_range}")
+            if self.velocity <= self.cell_size:
+                self.velocity += self.cell_size
 
-        # Apply penalty only if at least 40% of neighbors are agents
-       # if agent_percentage < 0.2:
-       #    return 0  # No penalty applied if less than 40% are agents
+            self.movement_range += self.velocity
 
-        # Calculate penalty
-        penalty = 0  # Initialize the penalty accumulator
-        for agent in agent_cells:
-            euclidean_distance = self.euclidean_distance_to(agent)  # Calculate distance
+            print("MOVEMENT INCREASE")
+            print(f"new range is{self.movement_range}")
+        elif not self.idle:
+            # We enter this part when the agent was able to move after being idle(for example stuck in crowd) --> We reset velocity and movement range to original states
+            self.movement_range = self.original_movement_range
+            print(f"MOVEMENT RESET: new range is {self.movement_range} and velocity is {self.velocity}")
+            self.velocity = self.original_velocity
 
-            if euclidean_distance > 0:  # Avoid division by zero for self
-                penalty_contribution = 1 / euclidean_distance  # Inverse distance penalty
-                penalty += penalty_contribution
-        print(f"Social force penalty for {self.__hash__()} is {penalty}")
-        return penalty
-
-
-    @log_decorator
-    def increase_movement_range(self):
-        #Methode wird aufgerufen wenn Ziel nicht in einem Zeitschritt erreicht werden kann -->
-        self.movement_range = self.velocity + self.movement_range
-        return self.movement_range
-
-
-    #Bewegungslogik
-    # sure this method does make sense here from a architectural point of view?
-    def movement_towards_target(self,  grid):
-
+    def movement_decision(self, grid, precomputed_penalties, agent_index):
         """
-                Use precomputed distance maps to move toward the target.
-                Supports flood-fill or Dijkstra-based maps.
-                """
+        Decide the next move for the agent. Mark as arrived if reaching the target.
+        Returns the new position (row, col) or None if no movement.
+        """
+        if self.arrived:
+            return None
+
+        if self.target is None:
+            self.target = self.find_target(grid.target_cells)
+
+        if not self.target:
+            return None
+
+        target_key = (self.target[0], self.target[1])
+        distance_map = grid.dijkstra_distance_maps.get(target_key) or grid.flood_fill_distance_maps.get(target_key)
+
+        if not distance_map:
+            return None
+
+        valid_neighbors = self.valid_neighbors(self.get_neighbors(grid, radius=1))
+        valid_neighbors.append(self)  # Include staying in place as an option
+
+        best_move = self
+        smallest_cost = float('inf')
+
+        for neighbor in valid_neighbors:
+            distance_to_target = distance_map[neighbor.row][neighbor.col]
+            social_penalty = precomputed_penalties[agent_index]
+            staying_penalty = 4 if neighbor == self else 0
+
+            # Reduce weight of social penalties near the target
+            if isinstance(grid.grid[neighbor.row][neighbor.col], TargetCell):
+                social_penalty *= 0.5  # Halve the effect of social penalties near the target
+            random_bias = random.uniform(-0.5, 0.5)
+            total_cost = distance_to_target + random_bias + social_penalty + staying_penalty
+
+            if total_cost < smallest_cost:
+                smallest_cost = total_cost
+                best_move = neighbor
+        # Set lowest possible velocity before reducing it any further to 0.40, graceful penalty only
+        print(f"Agent{self.id} velocity before penalty is {self.velocity}. Social penalty is {social_penalty}")
+        if self.velocity >= 0.40:
+            if social_penalty is not None:
+                self.velocity = self.velocity - (social_penalty / 4)
+                if self.velocity <= 0:
+                    # we dont want negative velocities
+                    self.velocity = abs(self.velocity)
+                self.movement_range = self.velocity
+
+                print(f"new velocity for {agent_index} is {self.velocity}")
+
+        # Mark as arrived if moving onto the target
+        if isinstance(grid.grid[best_move.row][best_move.col], TargetCell):
+            self.arrived = True
+            return None
+
+        return (best_move.row, best_move.col) if best_move != self else None
+
+    def movement_towards_target(self, grid, precomputed_penalties, index, timestep):
         if self.arrived:
             return
 
-        # Determine the target and select the appropriate distance map
         target = self.find_target(grid.target_cells)
-        if not target:
+        # print(f"Agent {self.id} moving towards target {target}")
+
+        valid_neighbors = self.valid_neighbors(self.get_neighbors(grid, radius=1))
+        if not valid_neighbors:
+            # print(f"Agent {self.id} has no valid neighbors and is stuck.")
             return
 
-        target_key = (target[0], target[1])  # Coordinates of the target
+        best_move = self
 
-        if grid.movement_method=="dijkstra":
-            distance_map = grid.dijkstra_distance_maps.get(target_key)
+        new_best_move = self.movement_decision(grid, precomputed_penalties, index)
+        if new_best_move is None:
+            print(f"Agent {self.id} at position {self.row, self.col} has no best move")
+            return
+        # print(new_best_move)
+        # print(self.euclidean_distance_to(grid.grid[new_best_move[0]][new_best_move[1]]))
+        if new_best_move != self and self.euclidean_distance_to(grid.grid[new_best_move[0]][new_best_move[1]]) <= self.movement_range:
+            grid.grid[self.row][self.col] = Cell(self.row, self.col, cell_size=self.cell_size)
+            grid.grid[new_best_move[0]][new_best_move[1]] = self
+            self.row, self.col = new_best_move[0], new_best_move[1]
+            self.route.append((new_best_move[0], new_best_move[1]))
+            # print(f"Agent {self.id} moved to ({self.row}, {self.col})")
+            self.idle = False
+            self.log_state(timestep)
+            self.adjust_movement_range()
 
-            # Find the best move
-            neighbors = self.get_neighbors(grid, radius=1)
-            valid_neighbors = [
-                cell for layer in neighbors.values()
-                for cell in layer
-                if not isinstance(cell, ObstacleCell) and not grid.is_cell_occupied(cell.row, cell.col) and not isinstance(cell, TargetCell) and cell.is_passable()
-            ]
-
-            # Include the agent's current position as an option
-            valid_neighbors.append(self)
-
-            # Determine the neighbor with the smallest distance to the target
-            best_move = self
-            smallest_distance = distance_map[self.row][self.col]
-
-            for neighbor in valid_neighbors:
-                distance = distance_map[neighbor.row][neighbor.col]
-                if distance < smallest_distance:
-                    smallest_distance = distance
-                    best_move = neighbor
-
-            # Move to the best neighbor
-            if best_move != self:
-                grid.grid[self.row][self.col] = Cell(self.row, self.col,cell_size=self.cell_size)  # Clear current position
-                grid.grid[best_move.row][best_move.col] = self  # Update agent position
-                self.row, self.col = best_move.row, best_move.col
-
-            # Mark as arrived if adjacent to the target
-            if smallest_distance == grid.cell_size:
-                self.arrived = True
-                grid.agents.remove(self)
-                grid.grid[self.row][self.col] = Cell(self.row, self.col, cell_size=self.cell_size)
-                print(f"Agent at ({self.row}, {self.col}) has arrived at the target.")
-        elif grid.movement_method=="floodfill":
-            distance_map = grid.flood_fill_distance_maps.get(target_key)
-            #print(distance_map)
-            neighbors = self.get_neighbors(grid, radius=1)
-            valid_neighbors = [
-                cell for layer in neighbors.values()
-                for cell in layer
-                if not isinstance(cell, ObstacleCell) and not isinstance(cell, TargetCell) and not grid.is_cell_occupied(cell.row, cell.col)
-            ]
-
-            # Include the agent's current position as an option
-            valid_neighbors.append(self)
-
-            # Determine the neighbor with the smallest distance to the target
-            best_move = self
-            smallest_distance = distance_map[self.row][self.col]
-
-
-
-            for neighbor in valid_neighbors:
-                neighbor_distance = distance_map[neighbor.row][neighbor.col]
-                if neighbor_distance < smallest_distance:
-                    smallest_distance = neighbor_distance
-                    best_move = neighbor
-
-            # Move to the best neighbor
-            if best_move != self:
-                # Clear current position
-                grid.grid[self.row][self.col] = Cell(self.row, self.col, cell_size=self.cell_size)
-                # Update agent position
-                grid.grid[best_move.row][best_move.col] = self
-                self.row, self.col = best_move.row, best_move.col
-
-            # Check if the agent has reached the target
-            if smallest_distance == 0:  # Reached the target
-                self.arrived = True
-                grid.agents.remove(self)
-                grid.grid[self.row][self.col] = Cell(self.row, self.col, cell_size=self.cell_size)
-                print(f"Agent at ({self.row}, {self.col}) has arrived at the target.")
-        if not distance_map:
-            return  # No distance map available
-
-
+        elif new_best_move != self and self.euclidean_distance_to(grid.grid[new_best_move[0]][new_best_move[1]]) > self.movement_range:
+            self.idle = True
+            self.log_state(timestep)
+            print(
+                f"Agent{self.id}: Range {self.movement_range} to short, adjusting. Distance is{self.euclidean_distance_to(grid.grid[new_best_move[0]][new_best_move[1]])}")
+            self.adjust_movement_range()
 
     def __repr__(self):
         return 'A'  # Represent agent with 'A'

@@ -1,58 +1,69 @@
 from Grid import Grid
-from Cell import Cell, SpawnCell, BorderCell, ObstacleCell, Agent, TargetCell
+from Cell import Cell, SpawnCell, ObstacleCell, Agent, TargetCell
 import matplotlib.pyplot as plt
 import numpy as np 
 from Grid import Grid, Visualization
-from tests import room_square, ChickenTest, RiMEA9, RiMEA4
-import tests
-grid = RiMEA9(1, "floodfill")
+from tests import room_square, ChickenTest, RiMEA9, RiMEA4, Experiment
+import matplotlib
+#This line is needed for the plots to render in Pychamr Sciplot-View
+matplotlib.use("Qt5Agg")
+#Abschnitt in dem Die simulations Parameter angegeben werden.
+time_input = input("Bitte geben sie die Anzahl Zeitschritte an (ein Zeitschritt ist 1 Sekunde)")
+timesteps = int(time_input)
+user_input = input("Bitte geben sie an welchen Test (RiMEA4, RiMEA9 oder Experiment) sie durchführen wollen")
+user_input = user_input.lower()
+if user_input == "rimea9":
+    door_input = input("Bitte Anzahl (1-4) Türen angeben")
+    pathfinding = input("Bitte Algorithmus wählen (dijkstra, floodfill)")
+    if pathfinding == "floodfill":
+        algo = "floodfill"
+    elif pathfinding == "dijkstra":
+        algo = "dijkstra"
+    else:
+        algo = "dijkstra" #Standardwert ist dijkstra
+    doors = int(door_input)
+    grid, door_cells, roi = RiMEA9(movement_method=algo, Doors=doors)
+elif user_input == "rimea4":
+    pathfinding = input("Bitte Algorithmus wählen (dijkstra, floodfill)")
+    if pathfinding == "floodfill":
+        algo = "floodfill"
+    elif pathfinding == "dijkstra":
+        algo = "dijkstra"
+    else:
+        algo = "dijkstra" #Standardwert ist dijkstra
+    spawn_input = input("Bitte spawnrate zwischen 0 und 1 eingeben um Personendichte zu variieren (Wird mit einer Zufallsvariable zwischen 0 und 1 verglichen um spawn zu bestimmen)")
+    grid, door_cells, roi = RiMEA4(movement_method=algo,spawn_rate=float(spawn_input))
+elif user_input == "experiment":
+    pathfinding = input("Bitte Algorithmus wählen (dijkstra, floodfill)")
+    if pathfinding == "floodfill":
+        algo = "floodfill"
+    elif pathfinding == "dijkstra":
+        algo = "dijkstra"
+    else:
+        algo = "dijkstra"  # Standardwert ist dijkstra
+    spawn_input = input("Bitte spawnrate zwischen 0 und 1 eingeben um Personendichte zu variieren (Wird mit einer Zufallsvariable zwischen 0 und 1 verglichen um spawn zu bestimmen)")
+    grid, door_cells, roi = Experiment(movement_method=algo, spawn_rate=float(spawn_input))
+####################################################
+#Visualisierung initialisieren und Variablen für Resultate anlegen
 visualization = Visualization(grid)
-
 agent_count_list = []
-average_distance = [] 
-density_list = []
-timesteps = 10
+fundamental_data = []
 
+
+
+agents_crossed = {}  # Dictionary to track agents crossing the boundary
 for i in range(timesteps):
     grid.update(target_list=grid.target_cells, timestep=i)
-    #visualization.plot_grid_state(i)
-    grid.plot_grid_state(i)
-    plt.pause(0.2)
+    #Print statement trent einzelne Zeitschritte von einander (für einfacheres debugging)
+    print("--------------------------------------------------------------------------------------------------")
+    #Visualisierung aktueller grid-state
+    visualization.plot_grid_state(i)
+    #Bereich für Density berechnung von aktuelem Grid state wählen
+    area = grid.select_area_by_coordinates(roi[0], roi[1], roi[2], roi[3])
+    #grid.plot_grid_state(i)
 
-    agent_count = len(grid.agents)
-    agent_count_list.append(agent_count)
-
-    # mittlere distanz von Agenten zu Ziel
-    total_distance_to_target = 0
-    if len(grid.agents) > 0:
-        total_istance_to_target = 0
-        for agent in grid.agents:
-            target = agent.find_target(grid.target_cells)
-            total_distance_to_target += agent.euclidean_distance_to(grid.grid[target[0]][target[1]])
-        
-        average_distance.append(total_distance_to_target / len(grid.agents))
-    else:
-        average_distance.append(np.nan)  
-
-
-
-plt.figure(figsize=(10,5)) 
-
-plt.subplot(1, 3, 1)
-plt.plot(agent_count_list)
-plt.title('Anzahl Agenten über Zeit')
-plt.xlabel('Zeitschritt')
-plt.ylabel('Anzahl Agenten') 
-
-plt.subplot(1, 3, 2)
-plt.plot(average_distance)
-plt.title('Mittlere Distanz Agenten zum Ziel')
-plt.xlabel('Zeitschritt')
-plt.ylabel('Distanz') 
-
-
-
-plt.tight_layout()
-plt.show()
-
-visualization.animate_grid_states(timesteps)
+    #Berechnung fürs Fundamentaldiagram (Aktuelle Agenten dichte, Fluss und durchschnittsgeschwindigkeit)
+    fd_results = grid.calculate_fundamental_diagram(door_cells, i, agents_crossed, area)
+    fundamental_data.append(fd_results)
+#Nachdem die Simulation durchgeführt wurde plotten wir noch die Ergebnisse der Fundamentaldiagram Berechnungen
+visualization.plot_fundamental_diagram(fundamental_data)

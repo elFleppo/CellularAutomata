@@ -1,5 +1,5 @@
 
-from Cell import Cell, BorderCell, SpawnCell, Agent, TargetCell, ObstacleCell
+from Cell import Cell,  SpawnCell, Agent, TargetCell, ObstacleCell
 
 import random
 import os
@@ -10,13 +10,17 @@ import heapq
 import matplotlib.colors as mcolors
 import math
 import numpy as np
+from concurrent.futures import ThreadPoolExecutor
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
 #Helper function for convert
 def clamp(value, min_value, max_value):
     return max(min(value, max_value), min_value)
 #Grid Klasse: Auf dem Grid befinden sich Zellobjekte und über das Grid wird das update() der Zellen durchgeführt
 class Grid:
     #Im Init wird das grid entsprechend aufgebaut, es können Listen mit Tuplen für die entsprechenden Zell Objekte mitgegeben werden
-    def __init__(self, length, height, spawn_cells, target_cells, obstacle_cells, cell_size=1.0, movement_method="dijkstra"):
+    def __init__(self, length, height, spawn_cells, target_cells, obstacle_cells, cell_size=1.0, movement_method="dijkstra", spawn_rate=1):
         self.length = length
         self.height = height
         self.cell_size = cell_size
@@ -25,16 +29,20 @@ class Grid:
         self.grid = [
             [Cell(row, col, cell_size=cell_size) for col in range(self.cols)] for row in range(self.rows)
         ]  # Aufbau Grid
-        self.spawn_cells = spawn_cells  # Listen für Spawns, Ziele und Hindernisse
+        self.spawn_cells = spawn_cells
+        self.spawn_rate = spawn_rate# Listen für Spawns, Ziele und Hindernisse
         self.target_cells = target_cells
         self.obstacle_cells = obstacle_cells
         self.agents = []  # Liste mit allen Agenten die sich auf dem Feld befinden
         self.movement_method = movement_method
+        self.density_data = []
+        self.speed_data = []
+        self.flow_data = []
 
         # Aufbau von Spawn, Zielen und Hindernissen
         for row, col in spawn_cells:
             #print(row, col)
-            self.grid[row][col] = SpawnCell(row=row, col=col, cell_size=cell_size)
+            self.grid[row][col] = SpawnCell(row=row, col=col, cell_size=cell_size,spawn_rate=self.spawn_rate)
         if obstacle_cells is not None:
             for row, col in obstacle_cells:
                 #print(obstacle_cells)
@@ -69,10 +77,9 @@ class Grid:
             List[Cell]: A list of Cell objects within the selected area.
         """
         # Convert coordinates to grid indices using clamp
-        start_row = clamp(int(start_y / self.cell_size), 0, self.rows - 1)
-        start_col = clamp(int(start_x / self.cell_size), 0, self.cols - 1)
-        end_row = clamp(int(end_y / self.cell_size), 0, self.rows - 1)
-        end_col = clamp(int(end_x / self.cell_size), 0, self.cols - 1)
+        start_row, start_col = self.meter_to_rowcol(start_x, start_y)
+        end_row, end_col = self.meter_to_rowcol(end_x, end_y)
+
 
         # Ensure start indices are less than or equal to end indices
         if start_row > end_row or start_col > end_col:
@@ -86,18 +93,12 @@ class Grid:
         ]
 
         return selected_cells
-    #Plaziere Wand um Feld
-    def place_border(self):
-        """Place a border around the grid"""
-        for r in range(self.rows):
-            for c in range(self.cols):
-                if r == 0 or r == self.rows - 1 or c == 0 or c == self.cols - 1:
-                    self.grid[r][c] = BorderCell(cell_size=self.cell_size)
+
     #Die Untenstehenden methoden erlauben eine Interaktion mit dem Grid ausserhalb der initialisierung
     def place_spawn_cell(self, row,col):
         """Place a spawn cell at a specific position on the grid"""
         #row, col = self.meter_to_rowcol(x, y)
-        self.grid[row][col] = SpawnCell(row=row, col=col, cell_size=self.cell_size)
+        self.grid[row][col] = SpawnCell(row=row, col=col, cell_size=self.cell_size, spawn_rate=self.spawn_rate)
         self.spawn_cells.append((row, col))
 
     def place_empty_cell(self, row,col):
@@ -115,6 +116,7 @@ class Grid:
         """Place an agent at a specific position on the grid"""
         #row, col = self.meter_to_rowcol(x, y)
         agent = Agent(row, col, cell_size=self.cell_size)
+        agent.group = random.choice([0, 1])
         if isinstance(self.grid[row][col], Cell) and not isinstance(self.grid[row][col], TargetCell):
             self.grid[row][col] = agent
             self.agents.append(agent)
@@ -128,16 +130,40 @@ class Grid:
         cell = self.grid[row][col]
         return isinstance(cell, Agent)
 
+    #Methoden für die Social Penalty berechnung (mit numpy für bessere leistung da anfänglich zu langsam)
+    def get_agent_positions(self):
+        """
+        Extract the positions of all agents as a NumPy array.
+        Returns:
+            np.ndarray: Array of shape (num_agents, 2) with rows [row, col].
+        """
+        return np.array([[agent.row, agent.col] for agent in self.agents])
 
-    #Helper Methode für Djkstra Algorithmus
-    def compute_distance_map(self, target):
+    def get_agent_arrival_status(self):
+        """
+        Extract whether each agent has arrived.
+        Returns:
+            np.ndarray: Boolean array of shape (num_agents,) indicating arrival status.
+        """
+        return np.array([agent.arrived for agent in self.agents])
+
+ #   def get_agent_velocities(self):
+ #       """
+ #       Extract the velocities of all agents.
+ #       Returns:
+ #           np.ndarray: Array of shape (num_agents,) with agent velocities.
+ #       """
+ #       return np.array([agent.velocity for agent in self.agents])
+
+
+    #Methode für Djkstra Algorithmus
+
+    def dijkstra_map(self, target):
         """
         Compute the shortest path distances from the target to all cells using Dijkstra's algorithm.
-        This version calculates direct Euclidean distance for each cell to avoid cumulative errors.
-
+        This version allows setting distances on Agent cells but prohibits Obstacle cells.
         Parameters:
             target (tuple): Coordinates of the target cell as (row, col).
-
         Returns:
             List[List[float]]: A 2D distance map where each cell contains the shortest distance to the target.
         """
@@ -161,42 +187,42 @@ class Grid:
             if current_distance > distance_map[current_row][current_col]:
                 continue
 
-            # Get the current cell and its neighbors
-            current_cell = self.grid[current_row][current_col]
-            neighbors = current_cell.get_neighbors(self, radius=1)
+            # Get neighbors of the current cell
+            neighbors = self.grid[current_row][current_col].get_neighbors(self, radius=1)
 
             for layer in neighbors.values():
                 for neighbor in layer:
                     neighbor_row, neighbor_col = neighbor.row, neighbor.col
 
-                    # Skip impassable cells
-                    if not neighbor.is_passable():
+                    # Skip obstacle cells
+                    if isinstance(self.grid[neighbor_row][neighbor_col], ObstacleCell):
                         continue
 
-                    # Calculate the direct Euclidean distance from the target
-                    direct_distance = math.sqrt((target_row - neighbor_row) ** 2 + (target_col - neighbor_col) ** 2)
-                    #direct_distance_2 = self.grid[target_row][target_col].euclidean_distance(neighbor)
-                    #print (direct_distance_2, direct_distance)
+                    # Allow distances on Agent cells
+                    if isinstance(self.grid[neighbor_row][neighbor_col], Agent):
+                        pass  # Agents are treated as passable for distance purposes
 
-                    # If the calculated distance is shorter, update and enqueue the neighbor
+                    # Calculate the direct Euclidean distance
+                    direct_distance = math.sqrt((target_row - neighbor_row) ** 2 + (target_col - neighbor_col) ** 2)
+
+                    # Update the neighbor's distance if this path is shorter
                     if direct_distance < distance_map[neighbor_row][neighbor_col]:
                         distance_map[neighbor_row][neighbor_col] = direct_distance
                         heapq.heappush(queue, (direct_distance, neighbor_row, neighbor_col))
 
         return distance_map
 
-    #Helper Methode für Flood Fill, returned Distance map
-    def flood_fill(self, target_row, target_col, target_state):
+    #Methode für Flood Fill, returned Distance map
+
+    def flood_fill_map(self, target_row, target_col, target_state):
         """
         Perform reverse flood-fill starting from the target (target_row, target_col).
         Computes a distance map where cells closer to the target have smaller values.
         Skips impassable cells (e.g., obstacles, borders).
-
         Parameters:
             target_row (int): Row index of the target.
             target_col (int): Column index of the target.
             target_state (int): State of the target cell.
-
         Returns:
             List[List[float]]: A 2D distance map with Manhattan distances to the target.
         """
@@ -207,7 +233,7 @@ class Grid:
         target_cell = self.grid[target_row][target_col]
 
         # Early exit if the target cell doesn't match the target state or is impassable
-        if target_cell.state != target_state or not target_cell.is_passable():
+        if target_cell.state != target_state or not target_cell.is_passable:
             raise ValueError("Target cell is invalid or impassable.")
 
         # Initialize the distance map with infinity
@@ -224,59 +250,170 @@ class Grid:
             current_row, current_col = queue.pop(0)
             current_distance = distance_map[current_row][current_col]
 
-            # Get neighbors of the current cell (4 directions: up, down, left, right)
             for dr, dc in directions:
                 neighbor_row, neighbor_col = current_row + dr, current_col + dc
 
-                # Skip if out of bounds
+                # Skip out-of-bounds cells
                 if not (0 <= neighbor_row < self.rows and 0 <= neighbor_col < self.cols):
                     continue
 
                 neighbor_cell = self.grid[neighbor_row][neighbor_col]
 
-                # Skip impassable cells or already visited cells
-                if not neighbor_cell.is_passable() or distance_map[neighbor_row][neighbor_col] != float('inf'):
+                # Skip obstacle cells
+                if isinstance(neighbor_cell, ObstacleCell):
                     continue
 
-                # Update the distance for the neighbor
-                distance_map[neighbor_row][neighbor_col] = current_distance + 1
-                queue.append((neighbor_row, neighbor_col))
+                # Allow distances on Agent cells
+                if isinstance(neighbor_cell, Agent):
+                    pass  # Agents are treated as passable for flood-fill purposes
+
+                # Update the distance for the neighbor if not visited
+                if distance_map[neighbor_row][neighbor_col] == float('inf'):
+                    distance_map[neighbor_row][neighbor_col] = current_distance + 1
+                    queue.append((neighbor_row, neighbor_col))
 
         return distance_map
 
-    # Display Methode: Momentan noch in Konsole, später mit Plots
+    # Konsolenausgabe
     def display(self):
         """Print the current state of the grid"""
         for row in self.grid:
             print(" ".join(str(cell) for cell in row))
         print()
 
-    #Update funktion: Wir müssen nur die Agenten bewegen und die Spawns für den nächsten Zeitschritt durchführen
+    #Berechne Social Penalties für gesamtes Grid
+    def compute_social_penalties(grid, cutoff_distance=1.5, penalty_decay_factor=0.5):
+        """
+        Compute social penalties for all agents using a vectorized approach.
+        Parameters:
+            grid (Grid): The simulation grid.
+            cutoff_distance (float): Maximum distance in meters to consider for social penalties.
+            penalty_decay_factor (float): Controls the steepness of the Gaussian decay.
+        Returns:
+            np.ndarray: Social penalties for all agents.
+        """
+        positions = grid.get_agent_positions()  # Shape: (num_agents, 2)
+        # If positions is 1D, reshape it --> Maybe this part here causes some of the Agents to get locked in place, not sure tho
+        if positions.ndim == 1:
+            positions = positions.reshape(-1, 2)
+        arrived = grid.get_agent_arrival_status()  # Shape: (num_agents,)
+        num_agents = positions.shape[0]
+
+        # Compute pairwise Euclidean distances (broadcasting)
+        deltas = positions[:, None, :] - positions[None, :, :]  # Expected Shape: (num_agents, num_agents, 2)
+        distances = np.linalg.norm(deltas, axis=2)  # Expected Shape: (num_agents, num_agents)
+
+        # Apply cutoff distance (set penalties to 0 beyond this distance)
+        mask = (distances <= cutoff_distance) & ~np.eye(num_agents, dtype=bool)  # Ignore self-distances
+        distances[~mask] = np.inf
+
+        # Apply Gaussian decay penalty
+        penalties = np.exp(-(distances ** 2) / (2 * penalty_decay_factor ** 2))  # Shape: (num_agents, num_agents)
+        penalties[~mask] = 0  # Ensure penalties are 0 for distances > cutoff
+
+        # Sum penalties for each agent
+        total_penalties = penalties.sum(axis=1)  # Shape: (num_agents,)
+
+        return total_penalties
+
+
+
+
+
     def update(self, target_list, timestep):
-        
-        if timestep%4 == 0:
+        """
+        Update the grid by moving agents and handling arrivals.
+        """
+        if timestep == 0:
             self.update_distance_maps()
-        
-        #Bewege Agenten
-        for agent in self.agents:
-            if agent.arrived == True:
-                self.agents.remove(agent)
-            #print(agent)
-            if self.movement_method == "floodfill":
-                agent.movement_towards_target(self)
-            elif self.movement_method == "dijkstra":
-                agent.movement_towards_target(self)  # Pass the grid instance
 
-            agent.log_state(timestep)
+        # Compute social penalties
+        precomputed_penalties = self.compute_social_penalties()
 
-        #Spawne Agenten (
+        # List to track agents to remove
+        agents_to_remove = []
+
+        for i, agent in enumerate(self.agents[:]):  # Iterate over a copy of the agents list
+            if agent.arrived:
+                agents_to_remove.append(agent)
+                continue
+
+            # Call the agent's movement logic
+            #print(f"Agent {agent.id} moving from ({agent.row}, {agent.col})")
+            agent.movement_towards_target(self, precomputed_penalties, i, timestep=timestep)
+
+            # Debugging
+            #print(f"Agent {agent.id} now at ({agent.row}, {agent.col})")
+
+        # Remove agents that have arrived
+        for agent in agents_to_remove:
+            #print(f"Removing agent {agent} from ({agent.row}, {agent.col})")
+            self.agents.remove(agent)
+
+            # Restore target cell explicitly (We Had alot of issues with Targets being overwritten, so we try to catch it at multiple levels)
+            if (agent.row, agent.col) in target_list:
+                self.grid[agent.row][agent.col] = TargetCell(agent.row, agent.col, self.cell_size)
+            else:
+                self.grid[agent.row][agent.col] = Cell(agent.row, agent.col, self.cell_size)
+
+        # Spawn new agents
         for row, col in self.spawn_cells:
             cell = self.grid[row][col]
-            if isinstance(cell, SpawnCell):  # Check if the cell at (row, col) is a SpawnCell
-                max_agents = 1  # Adjust the number of agents to spawn as needed
+            if isinstance(cell, SpawnCell):
+                max_agents = 1
                 cell.spawn_agents(self, max_agents)
 
         self.log_grid_state(timestep)
+
+    def update_no_penalties(self, target_list, timestep):
+        """
+        Update the grid by moving agents and handling arrivals.
+        """
+        if timestep == 0:
+            self.update_distance_maps()
+        # Compute social penalties
+        precomputed_penalties = self.compute_social_penalties()
+        # List to track agents to remove
+        agents_to_remove = []
+        for i, agent in enumerate(self.agents[:]):  # Iterate over a copy of the agents list
+            if agent.arrived:
+                agents_to_remove.append(agent)
+                continue
+            new_position = agent.movement_decision(self, precomputed_penalties, i)
+            if new_position:
+                current_row, current_col = agent.row, agent.col
+                new_row, new_col = new_position
+                # Update grid: Move the agent
+                if not isinstance(self.grid[new_row][new_col], TargetCell):
+                    self.grid[new_row][new_col] = agent
+                # Restore the current cell
+                self.grid[current_row][current_col] = (
+                    TargetCell(current_row, current_col, self.cell_size)
+                    if (current_row, current_col) in target_list
+                    else Cell(current_row, current_col, self.cell_size)
+                )
+                # Update agent position
+                agent.row, agent.col = new_row, new_col
+        # Remove agents that have arrived
+        for agent in agents_to_remove:
+            print(f"Removing agent {agent} from ({agent.row}, {agent.col})")
+            self.agents.remove(agent)
+            # Restore target cell explicitly
+            if (agent.row, agent.col) in target_list:
+                self.grid[agent.row][agent.col] = TargetCell(agent.row, agent.col, self.cell_size)
+            else:
+                self.grid[agent.row][agent.col] = Cell(agent.row, agent.col, self.cell_size)
+        # Spawn new agents
+        for row, col in self.spawn_cells:
+            cell = self.grid[row][col]
+            if isinstance(cell, SpawnCell):
+                max_agents = 1
+                cell.spawn_agents(self, max_agents)
+        self.log_grid_state(timestep)
+
+
+
+
 
     def update_distance_maps(self):
         """
@@ -291,11 +428,11 @@ class Grid:
             # Flood-fill distance map
             if self.movement_method == "floodfill":
 
-                self.flood_fill_distance_maps[(row, col)] = self.flood_fill(row, col, target_state=3)
+                self.flood_fill_distance_maps[(row, col)] = self.flood_fill_map(row, col, target_state=3)
             elif self.movement_method == "dijkstra":
 
             # Dijkstra distance map
-                self.dijkstra_distance_maps[(row, col)] = self.compute_distance_map((row, col))
+                self.dijkstra_distance_maps[(row, col)] = self.dijkstra_map((row, col))
 
     def plot_distance_map(self, distance_map, title="Distance Map"):
         """
@@ -305,23 +442,39 @@ class Grid:
             distance_map (List[List[float]]): The 2D distance map to plot.
             title (str): Title for the heatmap.
         """
+
+
         # Convert distance map to a numpy array for easier handling
         distance_array = np.array(distance_map)
 
-        # Create a heatmap using seaborn
-        plt.figure(figsize=(8, 6))
-        sns.heatmap(distance_array, annot=False, cmap="YlGnBu", cbar=True, square=True, linewidths=0.5)
+        # Determine color scale limits for better visualization
+        finite_values = distance_array[np.isfinite(distance_array)]  # Exclude inf values
+        vmin = finite_values.min() if len(finite_values) > 0 else 0
+        vmax = finite_values.max() if len(finite_values) > 0 else 1
 
-        # Add a title and labels
+        # Create a heatmap using seaborn
+        plt.figure(figsize=(10, 8))
+        sns.heatmap(
+            distance_array,
+            annot=False,  # No annotations inside the cells
+            cmap="coolwarm",  # Color map for gradient
+            cbar=True,  # Display color bar
+            square=True,  # Ensure square cells
+            linewidths=0,  # Remove lines between cells
+            vmin=vmin,  # Set minimum value for color scale
+            vmax=vmax  # Set maximum value for color scale
+        )
+
+        # Add title and labels
         plt.title(title)
         plt.xlabel("Columns")
         plt.ylabel("Rows")
         plt.show()
 
-    def plot_grid_state(grid, timestep):
-        #Plot Ausgabe für klarere Visualisierung, momentan noch über States für Farbwahl: Evtl besser mit cell.color?
+    def plot_grid_state(self, timestep):
+        # Plot Ausgabe für klarere Visualisierung, momentan noch über States für Farbwahl: Evtl besser mit cell.color?
         # Convert grid to a DataFrame for easy visualization
-        data = [[cell.state for cell in row] for row in grid.grid]
+        data = [[cell.state for cell in row] for row in self.grid]
         # Define a custom color map for the cell states
         custom_colors = {
             0: 'white',  # Empty cells
@@ -354,6 +507,95 @@ class Grid:
         plt.ylabel("Rows")
         plt.show()
 
+
+
+
+
+   # def plot_fundamental_diagram(self):
+   #     """
+   #     Plot the fundamental diagram with density vs speed and flow.
+   #     """
+   #
+   #
+   #     densities = self.density_data
+   #     speeds = self.speed_data
+   #     flows = self.flow_data
+   #
+   #     fig, ax1 = plt.subplots()
+   #
+   #     ax1.set_xlabel("Density (agents/unit area)")
+   #     ax1.set_ylabel("Speed (units/time)", color="blue")
+   #     ax1.plot(densities, speeds, label="Speed", color="blue")
+   #     ax1.tick_params(axis="y", labelcolor="blue")
+   #
+   #     ax2 = ax1.twinx()  # instantiate a second y-axis that shares the same x-axis
+   #     ax2.set_ylabel("Flow (agents/unit time)", color="red")
+   #     ax2.plot(densities, flows, label="Flow", color="red")
+   #     ax2.tick_params(axis="y", labelcolor="red")
+   #
+   #     fig.tight_layout()  # ensure everything fits without overlap
+   #     plt.title("Fundamental Diagram")
+   #     plt.show()
+
+    def calculate_fundamental_diagram(self, boundary, timestep, agents_crossed, area):
+        """
+        Calculate and plot the Fundamental Diagram.
+
+        Parameters:
+            grid (Grid): The simulation grid.
+            boundary (list): A list of (row, col) tuples representing the boundary.
+            timestep (int): The current simulation timestep.
+            agents_crossed (dict): A dictionary tracking agents that crossed the boundary.
+
+
+        Returns:
+            dict: Contains density, flow, and average speed for the timestep.
+        """
+        # Step 1: Calculate Flow (Agents crossing the boundary in this timestep)
+        current_crossed_agents = []
+        for coordinates in boundary:
+            cell = self.grid[coordinates.row][coordinates.col]
+            if isinstance(cell, Agent) and cell.id not in agents_crossed:
+                current_crossed_agents.append(cell)
+                agents_crossed[cell.id] = timestep  # Track the agent's crossing
+
+        flow = len(current_crossed_agents)  # Number of agents crossing the boundary
+
+        # Step 2: Calculate Density (Agents per square meter in the Room or Hallway)
+       # region_in_front = self.select_area_by_coordinates(*region_coordinates)
+        agent_count = 0
+        agent_count = sum(
+            1 for cell in area if isinstance(cell, Agent)
+        )
+        print(f"agent count{agent_count}")
+        area_squared = sum(
+            self.cell_size**2 for cell in area if(cell.cell_size>0)
+        )
+       # print(area_squared)
+    # Area of region in m^2
+
+        density = agent_count / area_squared if area_squared > 0 else 0
+        print(f"density:{density}")
+        # Step 3: Calculate Average Speed (of agents crossing the boundary)
+        avg_speed = (
+            sum(agent.velocity for agent in current_crossed_agents) / len(current_crossed_agents)
+            if current_crossed_agents else 0
+        )
+
+        # Step 4: Return and log the results
+        results = {
+            "density": density,
+            "flow": flow,
+            "avg_speed": avg_speed,
+            "timestep": timestep,
+        }
+
+        print(f"Timestep {timestep}: Density={density:.2f}, Flow={flow:.2f}, AvgSpeed={avg_speed:.2f}")
+        return results
+
+
+
+
     def create_logfile(self):
         path = f"gridlog-{self.__hash__()}.txt"
         if(os.path.isfile(path)):
@@ -369,33 +611,101 @@ class Visualization:
         self.fig, self.ax = plt.subplots()
 
     def plot_grid_state(self, timestep):
-        data = [[cell.state for cell in row] for row in self.grid.grid]
+        data = [[cell.state for cell in row] for row in self.grid.grid]     #2D Liste mit jedem Zellenstatus
 
         custom_colors = {
-            0: 'white',  # Empty cells
-            1: 'yellow',  # Border cells
-            2: 'green',  # Spawn cells
-            3: 'red',  # Target cells
-            4: 'gray',  # Obstacles
-            47: 'blue'  # Agents
+            0: 'white',
+            1: 'yellow',
+            2: 'green',
+            3: 'red',
+            4: 'gray'
         }
 
-        cmap = mcolors.ListedColormap([custom_colors[key] for key in sorted(custom_colors.keys())])
-        bounds = list(sorted(custom_colors.keys())) + [max(custom_colors.keys()) + 1]  
+        agent_color_map = {0: 'purple', 1: 'darkblue'}
+
+        cmap = mcolors.ListedColormap([custom_colors[key] for key in sorted(custom_colors.keys())])     #erstelle eigne Colormap durch obige Farbwahl 
+        bounds = list(sorted(custom_colors.keys())) + [max(custom_colors.keys()) + 1]
         norm = mcolors.BoundaryNorm(bounds, cmap.N)
 
-        self.ax.clear()
-        self.ax.imshow(data, cmap=cmap, norm=norm)
-        
-        
+        self.ax.cla()                                   #Lösche den vorherigen Plotinhalt.
+        self.ax.imshow(data, cmap=cmap, norm=norm)      #Plotte die Zellen mit eigner Colormap
+
+        for agent in self.grid.agents:      #Plotte jeden Agenten auf dem Grid. 
+            if isinstance(self.grid.grid[agent.row][agent.col], Agent): 
+                self.ax.add_patch(plt.Rectangle((agent.col-0.5, agent.row-0.5), 1, 1, edgecolor='black', facecolor=agent_color_map[agent.group]))   #Mit add_patch wird der Agent platziert. Wir ziehen -0.5 ab um den Agenten in der Mitte der ZELLE zu setzen. (Position) 
+
+        # Gitterlinien hinzufügen
+        for i in range(len(data)):
+            self.ax.axhline(i+0.5, color='black')   #Wir addieren 0.5 dazu um den Agenten in der Mitte der GITTERLINIEN zu setzen. (Visuell)
+        for j in range(len(data[0])):
+            self.ax.axvline(j+0.5, color='black')
+
+        #Genauer definierter Bereich 
+        self.ax.set_xlim(-1, len(data[0]))  #Von Links nach Rechts
+        self.ax.set_ylim(-1, len(data))
+
         self.ax.set_title(f"Grid State at Timestep {timestep}")
         self.ax.set_xlabel("Columns")
         self.ax.set_ylabel("Rows")
 
-    def animate_grid_states(self, timesteps):
+        plt.pause(0.01)
+
+    def animate_grid_states(self, timesteps):       #Für jeden Zeitschritt, rufe die Funktion Update auf, welche die Zellen im Grid updated und dann plottet.        
         def update(frame):
-            self.grid.update(target_list=self.grid.target_cells, timestep=frame)
+            self.grid.update(target_list=self.grid.target_cells, timestep=frame)    
             self.plot_grid_state(frame)
 
-        ani = animation.FuncAnimation(self.fig, update, frames=timesteps, interval=10)
+        ani = animation.FuncAnimation(self.fig, update, frames=timesteps, interval=10)   #FuncAnimation regelt die Synchronisation, in diesem Fall 10 Milisekunden   
+        plt.show()
+
+    def plot_fundamental_diagram(self,data):
+        """Generate two separate plots from fundamental diagram data."""
+
+        # Extract data, remove entries where flow was 0 (no agents crossing yet)
+        timesteps = [entry["timestep"] for entry in data if entry["flow"]>0]
+        densities = [entry["density"] for entry in data if entry["flow"]>0]
+        avg_speeds = [entry["avg_speed"] for entry in data if entry["flow"]>0]
+        flows = [entry["flow"] for entry in data if entry["flow"]>0]
+
+        # Plot 1: Density over time
+        plt.figure(figsize=(10, 6))
+        plt.plot(timesteps, densities, marker="o", label="Density over time")
+        plt.title("Density Over Time")
+        plt.xlabel("Timestep")
+        plt.ylabel("Density (agents/m^2)")
+        plt.grid(True)
+        plt.legend()
+        plt.savefig("Density_over_time")
+        plt.show()
+
+        # Plot 2: Flow over time
+        plt.figure(figsize=(10, 6))
+        plt.plot(timesteps, flows, marker="o", label="Density over time")
+        plt.title("Flow Over Time")
+        plt.xlabel("Timestep")
+        plt.ylabel("Flow (agents/m/s)")
+        plt.grid(True)
+        plt.legend()
+        plt.savefig("Flow_over_time")
+        plt.show()
+        # Plot 3: Flow over time
+        plt.figure(figsize=(10, 6))
+        plt.plot(densities, flows, marker="o", label="Density over time")
+        plt.title("Flows over Densities")
+        plt.xlabel("Densities")
+        plt.ylabel("Flow (agents/m/s)")
+        plt.grid(True)
+        plt.legend()
+        plt.savefig("Flow_over_densities")
+        plt.show()
+
+        # Plot 2: Average speed relative to density
+        plt.figure(figsize=(10, 6))
+        plt.plot(densities, avg_speeds, marker="s", label="Avg Speed vs. Density", color="red")
+        plt.title("Average Speed Relative to Density")
+        plt.xlabel("Density (agents/m^2)")
+        plt.ylabel("Average Speed (m/s)")
+        plt.grid(True)
+        plt.legend()
+        plt.savefig("Speed_relative_to_density")
         plt.show()

@@ -1,7 +1,8 @@
 import unittest, math
 from Grid import Grid
 from Cell import Cell, SpawnCell, TargetCell, Agent, ObstacleCell
-
+from concurrent.futures import ThreadPoolExecutor
+import numpy as np
 #Werden wir später noch in einen dedizierten Testordner verschieben
 class TestAgentBehavior(unittest.TestCase):
 
@@ -14,9 +15,10 @@ class TestAgentBehavior(unittest.TestCase):
             cell_size=1,
             spawn_cells=[(1, 1)],
             target_cells=[(3, 3)],
+            movement_method="dijkstra",
             obstacle_cells=[]#Momentan noch keine Kolisionsvermeidung
         )
-
+        self.grid.update_distance_maps()
     def test_spawn_agents_restrict_to_neighbors(self):
         spawn_cell = self.grid.grid[1][1]  # Define a spawn cell
         self.assertIsInstance(spawn_cell, SpawnCell, "Expected a SpawnCell at (1, 1)")
@@ -34,7 +36,7 @@ class TestAgentBehavior(unittest.TestCase):
         self.assertEqual(len(self.grid.agents), 0)
 
         # Update erzeugt neue Agenten
-        self.grid.update(self.grid.target_cells, timestep=1)
+        #self.grid.update(self.grid.target_cells, timestep=1)
 
 
         # Verify all agents are in valid spawn neighbor cells
@@ -57,6 +59,8 @@ class TestAgentBehavior(unittest.TestCase):
         # Update bewirkt das er sich Ziel Nähert
         for timestep in range(10):
             self.grid.update(self.grid.target_cells, timestep=timestep)
+            #self.grid.plot_distance_map(self.grid.dijkstra_distance_maps([(3,3)]))
+            self.grid.plot_grid_state(timestep)
 
         # Verifiziere Löschung
         self.assertNotIn(agent, self.grid.agents, "Agent was not removed after arrival.")
@@ -227,7 +231,7 @@ class TestDistanceMaps(unittest.TestCase):
 
         # Compute the distance map
         target_row, target_col = 2, 2
-        distance_map = grid.flood_fill(target_row, target_col, target_state=3)
+        distance_map = grid.flood_fill_map(target_row, target_col, target_state=3)
 
         # Expected distance map
         expected_map = [
@@ -251,7 +255,176 @@ class TestDistanceMaps(unittest.TestCase):
                     msg=f"Mismatch in Flood Fill distance map for target ({target_row}, {target_col}) at ({row}, {col})"
                 )
         grid.plot_distance_map(distance_map)
+class TestPenalties(unittest.TestCase):
+
+    def setUp(self):
+        """Set up a grid for testing."""
+        # Create a 5x5 grid with cell size 1.0
+        self.grid = Grid(
+            length=5.0, height=5.0,
+            spawn_cells=[],
+            target_cells=[(4, 4)],
+            obstacle_cells=[],
+            cell_size=1.0
+        )
+        # Place a target at (4, 4)
+        self.grid.place_target(4, 4)
+        # Place an agent at (0, 0)
+        self.grid.place_agent(0, 0)
+        self.agent = self.grid.agents[0]
+
+    def test_precomputed_penalties(self):
+        """Test that precomputed social penalties are calculated correctly."""
+        # Place multiple agents in the grid
+        self.grid.place_agent(1, 1)
+        self.grid.place_agent(2, 2)
+
+        # Compute social penalties using the precomputed method
+        penalties = self.grid.compute_social_penalties()
+
+        # Ensure penalties are calculated for each agent
+        self.assertEqual(len(penalties), len(self.grid.agents))
+
+        # Verify that penalties are non-zero and consistent with agent positions
+        positions = np.array([[agent.row, agent.col] for agent in self.grid.agents])
+        for i, penalty in enumerate(penalties):
+            self.assertGreater(penalty, 0)
+
+            # Check penalty consistency with distances
+            deltas = positions - positions[i]
+            distances = np.linalg.norm(deltas, axis=1)
+            within_cutoff = distances <= 2.0
+
+            # Penalty should be influenced by nearby agents within cutoff distance
+            expected_penalty = sum(
+                np.exp(-(distances[j] ** 2) / (2 * 0.5 ** 2))
+                for j in range(len(distances))
+                if within_cutoff[j] and i != j
+            )
+
+            self.assertAlmostEqual(penalty, expected_penalty, places=2)
+
+    def test_update_with_precomputed_penalties(self):
+        """Test that the update method uses precomputed penalties correctly."""
+        # Place a second agent near the first agent
+        self.grid.place_agent(0, 1)
+        self.grid.update_distance_maps()
+        # Run the update method
+        self.grid.update(self.grid.target_cells, timestep=1)
+
+        # Verify penalties were used in movement decisions
+        precomputed_penalties = self.grid.compute_social_penalties()
+        for i, agent in enumerate(self.grid.agents):
+            penalty = precomputed_penalties[i]
+            self.assertGreater(penalty, 0)
+
+class TestGridPenalties(unittest.TestCase):
+
+    def setUp(self):
+        # Create a Grid instance
+        self.cell_size = 1.0
+        self.length = 5  # 5 cells wide
+        self.height = 5  # 5 cells tall
+
+        # Define the initial setup for the grid
+        spawn_cells = []  # No spawn cells for this test
+        target_cells = [(4, 4)]  # Target at the bottom-right corner
+        obstacle_cells = []  # No obstacles for simplicity
+
+        # Create the grid
+        self.grid = Grid(self.length, self.height, spawn_cells, target_cells, obstacle_cells, cell_size=self.cell_size)
+
+        # Place agents in the grid
+        self.grid.place_agent(1, 1)
+        self.grid.place_agent(1, 2)
+        self.grid.place_agent(2, 1)
+        self.grid.place_agent(2, 2)
+        self.agents = self.grid.agents
+
+    def test_social_penalties_computation(self):
+        # Compute social penalties for all agents
+        cutoff_distance = 2.0
+        penalty_decay_factor = 0.5
+        precomputed_penalties = self.grid.compute_social_penalties(cutoff_distance, penalty_decay_factor)
+
+        # Print computed penalties for debugging
+        print(f"Computed Penalties: {precomputed_penalties}")
+
+        # Validate penalties are computed correctly
+        self.assertEqual(len(precomputed_penalties), len(self.agents))
 
 
-if __name__ == '__main__':
+        expected_penalties = [
+            0.28898620536195957,
+            0.28898620536195957,
+            0.28898620536195957,
+            0.28898620536195957
+        ]
+
+        # Check penalties against expected values
+        for computed, expected in zip(precomputed_penalties, expected_penalties):
+            self.assertAlmostEqual(computed, expected, delta=0.2)
+
+
+class TestAgentMovementRange(unittest.TestCase):
+
+    def setUp(self):
+        # Create a Grid instance
+        self.cell_size = 1
+        self.length = 5  # 5 cells wide
+        self.height = 5  # 5 cells tall
+
+        # Define the initial setup for the grid
+        spawn_cells = []  # No spawn cells for this test
+        target_cells = [(4, 4)]  # Target at the bottom-right corner
+        obstacle_cells = []  # No obstacles for simplicity
+
+        # Create the grid
+        self.grid = Grid(self.length, self.height, spawn_cells, target_cells, obstacle_cells, cell_size=self.cell_size)
+
+        # Add a target at (4, 4)
+        self.grid.place_target(4, 4)
+
+        # Place an agent at (0, 0)
+        self.grid.place_agent(0, 0)
+        self.agent = self.grid.grid[0][0]
+
+        # Precompute distance maps for the grid
+        self.grid.update_distance_maps()
+
+    def test_movement_range_increases(self):
+        # Set initial conditions
+
+        original_range = self.agent._original_movement_range
+        original_velocity = self.agent._original_velocity
+        # Debug initial values
+        print(f"Initial Movement Range: {original_range}")
+        print(f"Original Velocity: {original_velocity}")
+        precomputed_penalties = self.grid.compute_social_penalties()
+
+        # Simulate insufficient movement range
+        self.agent.movement_towards_target(self.grid, precomputed_penalties, 0, 0)
+
+        # Assert no movement happened due to insufficient range
+        self.assertEqual(self.agent.row, 0)
+        self.assertEqual(self.agent.col, 0)
+
+        # Verify movement range increased
+
+        expected_range = self.agent._original_movement_range+self.agent.velocity
+        print(f"Current Velocity afet movement update{self.agent.velocity} range {self.agent.movement_range}")# Initial range + velocity
+        print(f"New Movement Range: {self.agent.movement_range} (Expected: {expected_range})")
+        self.assertAlmostEqual(self.agent.movement_range, expected_range, delta=0.1)
+
+        self.agent.movement_towards_target(self.grid, precomputed_penalties, 0, 0)
+
+
+
+
+
+
+if __name__ == "__main__":
     unittest.main()
+
+
+
